@@ -1,0 +1,5 @@
+// Development placeholders. Replace before signing for a device or distribution.
+SKY_STACK_BUNDLE_ID = com.example.skystack
+SKY_STACK_DISPLAY_NAME = Lumi Arcade
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1

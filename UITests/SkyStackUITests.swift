@@ -1,0 +1,101 @@
+import XCTest
+
+final class SkyStackUITests: XCTestCase {
+    @MainActor
+    func testLaunchPerformance() {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTApplicationLaunchMetric()], options: options) { XCUIApplication().launch() }
+    }
+
+    @MainActor
+    func testArcadotInitialsSaveReloadIsolationAndRestart() {
+        let app = XCUIApplication()
+        let id = "TEST" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let url = "https://play.lumiarcade.com/g/sky-stack/" + id
+        app.launchArguments = ["-LumiArcadeInvocationURL", url, "-SkyStackGameOverPreview"]
+        app.launch()
+        XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["finalScore"].label, "4")
+        XCTAssertEqual(app.staticTexts["arcadotIdentity"].label, "ARCADOT #" + id)
+        XCTAssertEqual(app.keyboards.count, 0)
+        let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        let starting = (0..<3).map { app.staticTexts["initial\($0)"].value as? String ?? "" }.joined()
+        XCTAssertEqual(starting.count, 3)
+        var expected = Array(starting)
+        if expected.count == 3,
+           let first = alphabet.firstIndex(of: expected[0]),
+           let last = alphabet.firstIndex(of: expected[2]) {
+            expected[0] = alphabet[(first + 2) % 36]
+            expected[2] = alphabet[(last + 35) % 36]
+        }
+        let expectedRow = "Rank 1, \(String(expected)), 4 points"
+        app.buttons["initialUp0"].tap()
+        app.buttons["initialUp0"].tap()
+        app.buttons["initialDown2"].tap()
+        let entry = XCTAttachment(screenshot: app.screenshot())
+        entry.name = "Arcade initials"
+        entry.lifetime = .keepAlways
+        add(entry)
+        app.buttons["saveScore"].tap()
+        XCTAssertTrue(app.buttons["playAgain"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.otherElements["leaderboardRow0"].label, expectedRow)
+        let board = XCTAttachment(screenshot: app.screenshot())
+        board.name = "Arcadot leaderboard"
+        board.lifetime = .keepAlways
+        add(board)
+        app.buttons["playAgain"].tap()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["liveScore"].label, "0")
+        app.terminate()
+        app.launchArguments = ["-LumiArcadeInvocationURL", url, "-SkyStackPreviewScore", "0"]
+        app.launch()
+        XCTAssertTrue(app.buttons["playAgain"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.otherElements["leaderboardRow0"].label, expectedRow)
+        XCTAssertFalse(app.buttons["saveScore"].exists)
+        app.terminate()
+        app.launchArguments = ["-LumiArcadeInvocationURL", url + "B", "-SkyStackPreviewScore", "0"]
+        app.launch()
+        XCTAssertTrue(app.buttons["playAgain"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.otherElements["leaderboardRow0"].exists)
+    }
+
+    @MainActor
+    func testFiveRowsFitCompactResults() {
+        let app = XCUIApplication()
+        let id = "TABLE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let url = "https://play.lumiarcade.com/g/sky-stack/" + id
+        for score in [10, 20, 30, 40, 50] {
+            app.launchArguments = ["-LumiArcadeInvocationURL", url, "-SkyStackPreviewScore", "\(score)"]
+            app.launch()
+            XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
+            app.buttons["saveScore"].tap()
+            XCTAssertTrue(app.buttons["playAgain"].waitForExistence(timeout: 5))
+            if score == 50 {
+                XCTAssertTrue(app.otherElements["leaderboardRow4"].isHittable)
+                XCTAssertTrue(app.buttons["playAgain"].isHittable)
+                XCTAssertFalse(app.otherElements["leaderboardRow5"].exists)
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Five-score leaderboard"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+            }
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testImmediatePlayAndRelaunch() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["liveScore"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)).tap()
+        XCTAssertFalse(app.staticTexts["TAP TO STACK"].exists)
+        XCTAssertEqual(app.staticTexts["liveScore"].label, "1")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["liveScore"].label, "0")
+    }
+}
