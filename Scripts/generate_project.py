@@ -15,8 +15,10 @@ def add(object_name, isa, **props):
 def ref(path, kind):
     return add('file:'+path, 'PBXFileReference', lastKnownFileType=kind, path=path, sourceTree='<group>')
 
-shared = sorted(str(p.relative_to(ROOT)) for folder in ['Shared', 'SkyStack'] for p in (ROOT/folder).glob('*.swift'))
-files = shared + ['App/LumiArcadeApp.swift', 'AppClip/AppClipRootView.swift', 'AppClip/LumiArcadeClipApp.swift', 'Tests/SkyStackTests.swift', 'UITests/SkyStackUITests.swift']
+shared = sorted(str(p.relative_to(ROOT)) for folder in ['Shared', 'SkyStack', 'Pulse'] for p in (ROOT/folder).glob('*.swift'))
+app_sources = sorted(str(p.relative_to(ROOT)) for p in (ROOT/'App').glob('*.swift'))
+clip_sources = ['AppClip/AppClipRootView.swift', 'AppClip/LumiArcadeClipApp.swift']
+files = shared + app_sources + clip_sources + ['Tests/SkyStackTests.swift', 'UITests/SkyStackUITests.swift']
 refs = {p: ref(p, 'sourcecode.swift') for p in files}
 configs = ['Shared/PrivacyInfo.xcprivacy', 'Configuration/Product.xcconfig', 'App/Info.plist', 'AppClip/Info.plist', 'App/App.entitlements', 'AppClip/AppClip.entitlements', 'README.md']
 for p in configs: refs[p] = ref(p, 'text.xcconfig' if p.endswith('xcconfig') else 'text.plist.xml' if p.endswith(('plist', 'entitlements', 'xcprivacy')) else 'net.daringfireball.markdown')
@@ -52,13 +54,13 @@ def target(name, source_paths, product_type, extension, settings, dependencies=N
     targets.append(t)
     return t
 
-clip=target('SkyStackClip', shared+['AppClip/AppClipRootView.swift','AppClip/LumiArcadeClipApp.swift'], 'com.apple.product-type.application.on-demand-install-capable','app',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID).Clip',INFOPLIST_FILE='AppClip/Info.plist',CODE_SIGN_ENTITLEMENTS='AppClip/AppClip.entitlements',SKIP_INSTALL='YES'))
+clip=target('SkyStackClip', shared+clip_sources, 'com.apple.product-type.application.on-demand-install-capable','app',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID).Clip',INFOPLIST_FILE='AppClip/Info.plist',CODE_SIGN_ENTITLEMENTS='AppClip/AppClip.entitlements',SKIP_INSTALL='YES'))
 def dependency(name, target_id):
     proxy=add('proxy:'+name,'PBXContainerItemProxy',containerPortal=uid('project'),proxyType=1,remoteGlobalIDString=target_id,remoteInfo=name)
     return add('dep:'+name,'PBXTargetDependency',target=target_id,targetProxy=proxy)
 embedbuild=add('embedclip','PBXBuildFile',fileRef=uid('product:SkyStackClip'),settings={'ATTRIBUTES':['RemoveHeadersOnCopy']})
 embed=add('embedphase','PBXCopyFilesBuildPhase',buildActionMask=2147483647,dstPath='$(CONTENTS_FOLDER_PATH)/AppClips',dstSubfolderSpec=16,files=[embedbuild],name='Embed App Clips',runOnlyForDeploymentPostprocessing=0)
-app=target('SkyStack', shared+['App/LumiArcadeApp.swift'],'com.apple.product-type.application','app',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID)',INFOPLIST_FILE='App/Info.plist',CODE_SIGN_ENTITLEMENTS='App/App.entitlements'),[dependency('SkyStackClip',clip)],[embed])
+app=target('SkyStack', shared+app_sources,'com.apple.product-type.application','app',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID)',INFOPLIST_FILE='App/Info.plist',CODE_SIGN_ENTITLEMENTS='App/App.entitlements'),[dependency('SkyStackClip',clip)],[embed])
 tests=target('SkyStackTests',['Tests/SkyStackTests.swift'],'com.apple.product-type.bundle.unit-test','xctest',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID).Tests',GENERATE_INFOPLIST_FILE='YES',TEST_HOST='$(BUILT_PRODUCTS_DIR)/SkyStack.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SkyStack',BUNDLE_LOADER='$(TEST_HOST)'),[dependency('SkyStack',app)])
 ui=target('SkyStackUITests',['UITests/SkyStackUITests.swift'],'com.apple.product-type.bundle.ui-testing','xctest',dict(PRODUCT_BUNDLE_IDENTIFIER='$(SKY_STACK_BUNDLE_ID).UITests',GENERATE_INFOPLIST_FILE='YES',TEST_TARGET_NAME='SkyStack'),[uid('dep:SkyStack')])
 pg=add('products','PBXGroup',children=products,name='Products',sourceTree='<group>')
@@ -74,17 +76,21 @@ schemes=project/'xcshareddata'/'xcschemes'
 schemes.mkdir(parents=True,exist_ok=True)
 def buildref(name):
     return f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:"+name)}" BuildableName="{name}.app" BlueprintName="{name}" ReferencedContainer="container:SkyStack.xcodeproj"/>'
-for name in ['SkyStack','SkyStackClip']:
+scheme_specs = [
+    ('SkyStack', 'SkyStack', None),
+    ('SkyStackClip', 'SkyStackClip', 'https://play.lumiarcade.com/play?game=sky-stack'),
+]
+for name, target_name, invocation_url in scheme_specs:
     testables=''
     if name=='SkyStack':
         for tn in ['SkyStackTests','SkyStackUITests']:
             testables += f'<TestableReference skipped="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:"+tn)}" BuildableName="{tn}.xctest" BlueprintName="{tn}" ReferencedContainer="container:SkyStack.xcodeproj"/></TestableReference>'
-    env='<EnvironmentVariables><EnvironmentVariable key="_XCAppClipURL" value="https://play.lumiarcade.com/g/sky-stack/00001" isEnabled="YES"/></EnvironmentVariables>' if name=='SkyStackClip' else ''
+    env=f'<EnvironmentVariables><EnvironmentVariable key="_XCAppClipURL" value="{invocation_url}" isEnabled="YES"/></EnvironmentVariables>' if invocation_url else ''
     (schemes/(name+'.xcscheme')).write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1630" version="1.3">
-<BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{buildref(name)}</BuildActionEntry></BuildActionEntries></BuildAction>
+<BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{buildref(target_name)}</BuildActionEntry></BuildActionEntries></BuildAction>
 <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables>{testables}</Testables></TestAction>
-<LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0">{buildref(name)}</BuildableProductRunnable>{env}</LaunchAction>
-<ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0">{buildref(name)}</BuildableProductRunnable></ProfileAction>
+<LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0">{buildref(target_name)}</BuildableProductRunnable>{env}</LaunchAction>
+<ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0">{buildref(target_name)}</BuildableProductRunnable></ProfileAction>
 <AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
 </Scheme>''')

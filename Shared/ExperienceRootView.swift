@@ -2,34 +2,31 @@ import SwiftUI
 
 struct ExperienceRootView: View {
     @State private var invocation = AppInvocation()
+    @State private var fallbackSelection: GameInvocation?
     private let router = ExperienceRouter()
 
     var body: some View {
         Group {
-            switch router.resolve(invocation) {
+            switch fallbackSelection.map(ExperienceRouter.Experience.game) ?? router.resolve(invocation) {
             case .game(let game):
-                gameView(game)
+                ArcadeGameView(invocation: game)
                     // Reinvoking the same object preserves a run. Switching to a
                     // different Arcadot creates a fresh scene and score context.
                     .id(game)
+            case .fallback:
+                fallbackView(message: "Choose an available Lumi Arcade game.")
             case .unsupported:
-                VStack(spacing: 20) {
-                    Text(Product.displayName).font(.title2)
-                    Text("This game isn’t supported by this version of Lumi Arcade.")
-                        .multilineTextAlignment(.center)
-                    Button("PLAY SKY STACK") { invocation = AppInvocation() }
-                        .buttonStyle(.borderedProminent)
-                }
-                .padding(32)
-                .preferredColorScheme(.dark)
+                fallbackView(message: "This game isn’t supported by this version of Lumi Arcade.")
             }
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             LaunchMeasurement.invoked()
+            fallbackSelection = nil
             invocation = AppInvocation(url: activity.webpageURL)
         }
         .onOpenURL { url in
             LaunchMeasurement.invoked()
+            fallbackSelection = nil
             invocation = AppInvocation(url: url)
         }
         #if DEBUG
@@ -42,11 +39,18 @@ struct ExperienceRootView: View {
         }
         #endif
     }
-    @ViewBuilder
-    private func gameView(_ invocation: GameInvocation) -> some View {
-        switch invocation.game {
-        case .skyStack: SkyStackView(arcadot: invocation.arcadot)
+    private func fallbackView(message: String) -> some View {
+        VStack(spacing: 20) {
+            Text(Product.displayName).font(.title2)
+            Text(message).multilineTextAlignment(.center)
+            ForEach(GameType.allCases, id: \.self) { game in
+                Button("PLAY \(game.displayName.uppercased())") {
+                    fallbackSelection = GameInvocation(game: game, arcadotID: nil)
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
+        .padding(32)
+        .preferredColorScheme(.dark)
     }
-
 }

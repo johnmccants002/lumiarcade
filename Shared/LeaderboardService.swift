@@ -5,6 +5,12 @@ protocol LeaderboardService {
     func submit(_ score: ArcadeScore) async throws
 }
 
+/// Full-app browsing over all locally stored Arcadot boards for a game.
+/// The per-Arcadot service API remains unchanged for gameplay.
+protocol GameLeaderboardBrowsing {
+    func scores(game: GameType) async throws -> [ArcadeScore]
+}
+
 enum LeaderboardRules {
     static let limit = 5
     static func ranked(_ scores: [ArcadeScore]) -> [ArcadeScore] {
@@ -21,7 +27,7 @@ enum LeaderboardRules {
 
 /// The async interface can be implemented by a future API; the game scene has
 /// no knowledge of persistence. The local snapshot keeps initial rendering immediate.
-final class LocalLeaderboardService: LeaderboardService {
+final class LocalLeaderboardService: LeaderboardService, GameLeaderboardBrowsing {
     enum StorageError: LocalizedError {
         case invalidScore, unreadableScores
         var errorDescription: String? {
@@ -34,8 +40,7 @@ final class LocalLeaderboardService: LeaderboardService {
     private let defaults: UserDefaults
     private let prefix = "lumiarcade.leaderboard.v1."
     var lastInitials: String {
-        let value = defaults.string(forKey: "lumiarcade.lastInitials") ?? "AAA"
-        return ArcadeInitials.isValid(value) ? value : "AAA"
+        PlayerProfileStore(defaults: defaults).initials
     }
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
@@ -69,6 +74,29 @@ final class LocalLeaderboardService: LeaderboardService {
         try await MainActor.run { try snapshot(game: game, arcadotID: arcadotID) }
     }
 
+    func scores(game: GameType) async throws -> [ArcadeScore] {
+        try await MainActor.run { try gameSnapshot(game: game) }
+    }
+
+    func gameSnapshot(game: GameType) throws -> [ArcadeScore] {
+        // Trigger the existing one-time legacy migration before enumerating boards.
+        _ = try snapshot(game: game, arcadotID: Product.localScoreID)
+        let gamePrefix = prefix + game.rawValue + "."
+        var scores: [ArcadeScore] = []
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(gamePrefix) {
+            guard let data = defaults.data(forKey: key),
+                  let board = try? JSONDecoder().decode([ArcadeScore].self, from: data),
+                  board.allSatisfy({
+                      $0.game == game && $0.score > 0 && ArcadeInitials.isValid($0.initials)
+                  }) else {
+                throw StorageError.unreadableScores
+            }
+            scores.append(contentsOf: board)
+        }
+        let unique = Dictionary(scores.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return Array(LeaderboardRules.ranked(Array(unique.values)).prefix(LeaderboardRules.limit))
+    }
+
     func submit(_ score: ArcadeScore) async throws {
         try await MainActor.run { try store(score) }
     }
@@ -80,6 +108,6 @@ final class LocalLeaderboardService: LeaderboardService {
         scores.append(score)
         let data = try JSONEncoder().encode(Array(LeaderboardRules.ranked(scores).prefix(LeaderboardRules.limit)))
         defaults.set(data, forKey: key(game: score.game, arcadotID: score.arcadotID))
-        defaults.set(score.initials, forKey: "lumiarcade.lastInitials")
+        _ = PlayerProfileStore(defaults: defaults).saveInitials(score.initials)
     }
 }

@@ -85,17 +85,55 @@ final class SkyStackUITests: XCTestCase {
     }
 
     @MainActor
-    func testImmediatePlayAndRelaunch() {
+    func testFullAppArcadeLaunchAndRelaunch() {
         let app = XCUIApplication()
         app.launch()
+        XCTAssertTrue(app.navigationBars["Lumi Arcade"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Arcade"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Leaderboards"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Profile"].exists)
+        app.buttons["play-sky-stack"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["liveScore"].exists)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)).tap()
         XCTAssertFalse(app.staticTexts["TAP TO STACK"].exists)
         XCTAssertEqual(app.staticTexts["liveScore"].label, "1")
+        app.buttons["exitGame"].tap()
+        XCTAssertTrue(app.navigationBars["Lumi Arcade"].waitForExistence(timeout: 5))
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["liveScore"].label, "0")
+        XCTAssertTrue(app.navigationBars["Lumi Arcade"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["CONTINUE PLAYING"].exists)
+    }
+
+    @MainActor
+    func testPulseArcadotRoutesToPulseResults() {
+        let app = XCUIApplication()
+        let id = "PULSE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/g/pulse/" + id,
+                               "-PulsePreviewScore", "4"]
+        app.launch()
+        XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["finalScore"].label, "4")
+        XCTAssertEqual(app.staticTexts["arcadotIdentity"].label, "ARCADOT #" + id)
+        XCTAssertTrue(app.staticTexts["PULSE"].exists)
+        XCTAssertEqual(app.keyboards.count, 0)
+    }
+
+    @MainActor
+    func testPulseGameplayTapStartsAndAcceptsRepeatedPulses() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/play?game=pulse"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+        let gameplay = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        gameplay.tap()
+        XCTAssertFalse(app.staticTexts["pulseInstruction"].exists)
+        XCTAssertTrue(app.staticTexts["liveScore"].waitForExistence(timeout: 1))
+        for _ in 0..<2 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            gameplay.tap()
+        }
+        XCTAssertFalse(app.staticTexts["finalScore"].exists)
     }
 }
