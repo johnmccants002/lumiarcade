@@ -35,6 +35,10 @@ final class SkyStackTests: XCTestCase {
             let result = router.resolve(AppInvocation(url: url))
             XCTAssertEqual(result, .game(GameInvocation(game: .skyStack, arcadotID: id)))
         }
+        XCTAssertEqual(
+            router.resolve(AppInvocation(url: URL(string: "https://play.lumiarcade.com/g/pulse/00025"))),
+            .game(GameInvocation(game: .pulse, arcadotID: "00025"))
+        )
         for raw in ["https://play.lumiarcade.com/g/sky-stack/", "https://play.lumiarcade.com/g/sky-stack/A%2FB",
                     "https://play.lumiarcade.com/g/sky-stack/00001/extra", "http://play.lumiarcade.com/g/sky-stack/00001",
                     "https://other.example/g/sky-stack/00001", "https://play.lumiarcade.com/g/sky-stack/__local__",
@@ -45,6 +49,178 @@ final class SkyStackTests: XCTestCase {
         let unknown = AppInvocation(url: URL(string: "https://play.lumiarcade.com/g/bounce/00001"))
         XCTAssertEqual(router.resolve(unknown), .game(.localPlay))
         XCTAssertEqual(ExperienceRouter(unknownGamePolicy: .unsupported).resolve(unknown), .unsupported)
+    }
+
+    func testQueryGameRoutesAndSafeFallback() throws {
+        let router = ExperienceRouter(unknownGamePolicy: .fallback)
+        XCTAssertEqual(
+            router.route(from: try XCTUnwrap(URL(string: "https://play.lumiarcade.com/play?game=sky-stack"))),
+            .game(GameInvocation(game: .skyStack, arcadotID: nil))
+        )
+        XCTAssertEqual(
+            router.route(from: try XCTUnwrap(URL(string: "https://play.lumiarcade.com/play?game=pulse"))),
+            .game(GameInvocation(game: .pulse, arcadotID: nil))
+        )
+        for raw in [
+            "https://play.lumiarcade.com/play",
+            "https://play.lumiarcade.com/play?game=",
+            "https://play.lumiarcade.com/play?game=unknown",
+            "https://play.lumiarcade.com/play?game=%25"
+        ] {
+            let url = try XCTUnwrap(URL(string: raw))
+            XCTAssertEqual(router.route(from: url), .fallback, raw)
+        }
+    }
+
+    func testGameRegistryContainsEveryImplementedGame() {
+        XCTAssertEqual(Set(GameType.allCases), Set([.skyStack, .pulse]))
+        for game in GameType.allCases {
+            XCTAssertFalse(game.displayName.isEmpty)
+            XCTAssertFalse(game.gameNumber.isEmpty)
+            XCTAssertFalse(game.summary.isEmpty)
+            XCTAssertFalse(game.systemImageName.isEmpty)
+        }
+    }
+
+    func testPlayerProfilePersistence() throws {
+        let name = "LumiArcadeProfile.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let profile = PlayerProfileStore(defaults: defaults)
+        XCTAssertEqual(profile.initials, "AAA")
+        XCTAssertNil(profile.lastPlayedGame)
+        XCTAssertEqual(profile.gamesPlayed, 0)
+        XCTAssertTrue(profile.saveInitials("JM9"))
+        XCTAssertFalse(profile.saveInitials("bad"))
+        profile.recordGameLaunch(.pulse)
+        profile.recordCompletedGame()
+        profile.recordCompletedGame()
+
+        let restored = PlayerProfileStore(defaults: defaults)
+        XCTAssertEqual(restored.initials, "JM9")
+        XCTAssertEqual(restored.lastPlayedGame, .pulse)
+        XCTAssertEqual(restored.gamesPlayed, 2)
+    }
+
+    @MainActor
+    func testGameLeaderboardBrowsingAggregatesExistingArcadotBoards() async throws {
+        let name = "LumiArcadeGlobalBoard.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let local = LocalLeaderboardService(defaults: defaults)
+        for entry in [
+            ArcadeScore(arcadotID: "00001", game: .pulse, initials: "ONE", score: 12),
+            ArcadeScore(arcadotID: "00002", game: .pulse, initials: "TWO", score: 30),
+            ArcadeScore(arcadotID: "00001", game: .skyStack, initials: "SKY", score: 99)
+        ] {
+            try await local.submit(entry)
+        }
+        let pulse = try await local.scores(game: .pulse)
+        XCTAssertEqual(pulse.map(\.score), [30, 12])
+        XCTAssertEqual(pulse.map(\.initials), ["TWO", "ONE"])
+        let skyStack = try await local.scores(game: .skyStack)
+        XCTAssertEqual(skyStack.map(\.score), [99])
+    }
+
+    @MainActor
+    func testCompletedRunsAreCountedOnceAndRestore() throws {
+        let name = "LumiArcadeGamesPlayed.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let session = SkyStackSession(defaults: defaults)
+        session.begin()
+        session.end()
+        session.end()
+        XCTAssertEqual(PlayerProfileStore(defaults: defaults).gamesPlayed, 1)
+        session.reset()
+        session.begin()
+        session.end()
+        XCTAssertEqual(PlayerProfileStore(defaults: defaults).gamesPlayed, 2)
+        XCTAssertEqual(PlayerProfileStore(defaults: defaults).lastPlayedGame, .skyStack)
+    }
+
+    @MainActor
+    func testPulseLeaderboardIsSeparatedByGameAndArcadot() async throws {
+        let name = "LumiArcadePulseBoard.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let local = LocalLeaderboardService(defaults: defaults)
+        let pulse25 = ArcadeScore(arcadotID: "00025", game: .pulse, initials: "PLS", score: 12)
+        let pulse26 = ArcadeScore(arcadotID: "00026", game: .pulse, initials: "ORB", score: 20)
+        let stack25 = ArcadeScore(arcadotID: "00025", game: .skyStack, initials: "SKY", score: 40)
+        try await local.submit(pulse25)
+        try await local.submit(pulse26)
+        try await local.submit(stack25)
+
+        let pulse25Scores = try await local.scores(game: .pulse, arcadotID: "00025")
+        let pulse26Scores = try await local.scores(game: .pulse, arcadotID: "00026")
+        let stack25Scores = try await local.scores(game: .skyStack, arcadotID: "00025")
+        XCTAssertEqual(pulse25Scores, [pulse25])
+        XCTAssertEqual(pulse26Scores, [pulse26])
+        XCTAssertEqual(stack25Scores, [stack25])
+        XCTAssertTrue(LeaderboardRules.qualifies(13, among: [pulse25]))
+    }
+
+    func testPulseDifficultyIsBoundedAndGateScoresOnce() {
+        var previousSpeed = PulseConfig.obstacleSpeed(score: 0)
+        var previousGap = PulseConfig.gapHeight(score: 0)
+        var previousInterval = PulseConfig.spawnInterval(score: 0)
+        for score in 0...200 {
+            let speed = PulseConfig.obstacleSpeed(score: score)
+            let gap = PulseConfig.gapHeight(score: score)
+            let interval = PulseConfig.spawnInterval(score: score)
+            XCTAssertGreaterThanOrEqual(speed, previousSpeed)
+            XCTAssertLessThanOrEqual(speed, PulseConfig.maximumObstacleSpeed)
+            XCTAssertLessThanOrEqual(gap, previousGap)
+            XCTAssertGreaterThanOrEqual(gap, PulseConfig.minimumGapHeight)
+            XCTAssertLessThanOrEqual(interval, previousInterval)
+            XCTAssertGreaterThanOrEqual(interval, PulseConfig.minimumSpawnInterval)
+            previousSpeed = speed
+            previousGap = gap
+            previousInterval = interval
+        }
+        let range = PulseConfig.gapCenterRange(sceneHeight: 568, gapHeight: PulseConfig.initialGapHeight)
+        XCTAssertLessThan(range.lowerBound, range.upperBound)
+        let gate = PulseObstaclePair(sceneHeight: 568, gapCenterY: range.lowerBound, gapHeight: PulseConfig.initialGapHeight)
+        XCTAssertTrue(gate.claimScore())
+        XCTAssertFalse(gate.claimScore())
+    }
+
+    @MainActor
+    func testPulseSessionSaveAndRepeatedSceneRestart() async throws {
+        let name = "LumiArcadePulseSession.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let arcadot = Arcadot(id: "00025", game: .pulse)
+        let session = PulseSession(defaults: defaults, arcadot: arcadot)
+        let scene = PulseScene(session: session)
+        let view = SKView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        view.presentScene(scene)
+        scene.update(0)
+        scene.pulse()
+        XCTAssertEqual(session.state, .playing)
+        XCTAssertEqual(scene.debugOrbVelocity?.dy, PulseConfig.tapVelocity)
+        scene.debugSetOrbVelocity(CGVector(dx: 0, dy: -PulseConfig.maxDownwardVelocity))
+        scene.pulse()
+        XCTAssertEqual(scene.debugOrbVelocity?.dy, PulseConfig.tapVelocity)
+        scene.debugPassGate()
+        scene.debugPassGate()
+        XCTAssertEqual(session.score, 1)
+        scene.debugCrash()
+        XCTAssertEqual(session.state, .gameOver)
+        session.initials = "PLS"
+        await session.saveScore()
+        XCTAssertEqual(session.leaderboard.map(\.score), [1])
+        for _ in 0..<12 {
+            scene.restart()
+            XCTAssertEqual(session.state, .ready)
+            XCTAssertEqual(session.score, 0)
+            XCTAssertEqual(scene.debugObstacleCount, 1)
+            scene.pulse()
+            scene.debugPassGate()
+            XCTAssertEqual(session.score, 1)
+        }
+        view.presentScene(nil)
     }
 
     @MainActor

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ArcadeResultsView: View {
-    @ObservedObject var session: SkyStackSession
+    @ObservedObject var session: ArcadeGameSession
     let restart: () -> Void
     @AccessibilityFocusState private var focusedHeading: Bool
 
@@ -9,7 +9,7 @@ struct ArcadeResultsView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 14) {
-                    Text(GameType.skyStack.displayName.uppercased())
+                    Text(session.game.displayName.uppercased())
                         .font(.system(size: 11, weight: .medium)).tracking(3)
                         .foregroundStyle(.white.opacity(0.5))
                     Text(heading)
