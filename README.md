@@ -12,17 +12,17 @@ Lumi Arcade turns physical NFC-enabled **Arcadots** into lightweight arcade mach
 - **Sky Stack:** Game #001. Its existing SpriteKit gameplay and stack artwork are preserved.
 - **Pulse:** Game #002. A glowing energy orb pulses through geometric gates with one-touch gravity gameplay.
 
-This is a dedicated gaming product under the broader Lumi name. There are no social feeds, relationships, messaging, accounts, onboarding, or backend dependencies. The installed app is a permanent local arcade with Arcade, Leaderboards, and Profile tabs. Valid invocation URLs still launch their game directly; the App Clip uses a minimal picker only as the safe fallback for an invalid `/play` route.
+This is a dedicated gaming product under the broader Lumi name. There are no social feeds, relationships, messaging, accounts, or onboarding. The installed app is a permanent local arcade with Arcade, Leaderboards, and Profile tabs. Supabase stores only the active game assigned to each Arcadot; initials, profiles, and leaderboards remain local to the app or App Clip installation.
 
 ## Open and run
 
 Open `SkyStack.xcodeproj` in Xcode 16.3 or later. The existing project, module, and scheme names remain **SkyStack** and **SkyStackClip** to avoid unnecessary build/signing changes. Both installed products display **Lumi Arcade**, while the in-game title remains **Sky Stack**. Deployment target: iOS 17.0, iPhone, portrait.
 
 - Run **SkyStack** on an iPhone Simulator to open the full Lumi Arcade app. It starts on the Arcade tab, where either game can be launched.
-- Run **SkyStackClip** for the project's single App Clip target. Its shared scheme supplies `_XCAppClipURL=https://play.lumiarcade.com/play?game=sky-stack`.
-- Edit Scheme → Run → Environment Variables to switch that same App Clip to `_XCAppClipURL=https://play.lumiarcade.com/play?game=pulse`.
-- Set `_XCAppClipURL` to a `/g/{game}/{arcadotID}` URL when testing an Arcadot-specific leaderboard, or disable it for Local Play.
+- Run **SkyStackClip** for the project's single App Clip target. Its shared scheme supplies `_XCAppClipURL=https://play.lumiarcade.com/a/00025`.
+- Use `/a/{arcadotID}` to test the necklace assignment flow. Set `_XCAppClipURL` to a legacy `/g/{game}/{arcadotID}` URL to test deterministic routing, or disable it for Local Play.
 - For deterministic routing in a Debug full-app run, pass `-LumiArcadeInvocationURL` followed by the complete URL. This testing argument is absent from Release behavior.
+- Add `-LumiArcadeAssignmentGame pulse` or `-LumiArcadeAssignmentGame sky-stack` to simulate a successful assignment without Supabase. Add `-LumiArcadeAssignmentUnavailable` to exercise cache and offline behavior.
 - Product → Test with the **SkyStack** scheme runs logic, gameplay, persistence, and UI tests.
 
 No manual target creation is necessary. The full app embeds the App Clip; both compile the same shared routing, game, leaderboard code, and asset catalog.
@@ -47,11 +47,20 @@ The installed app has three native tabs:
 - **Leaderboards** aggregates the existing top-five boards for the selected game across Local Play and known Arcadot IDs on this installation. It has loading, empty, and storage-error states; it does not claim to be an online global board.
 - **Profile** reuses the three-character `ArcadeInitialsPicker`, persists the selected initials, shows completed games recorded from this version onward, and shows each game's local high score.
 
-Selecting a game creates a normal `GameInvocation` and presents the same `ArcadeGameView` used by the App Clip. The close control is full-app-only and returns to Arcade. Sky Stack and Pulse contain no full-app navigation or URL logic.
+Selecting a game creates a normal `GameInvocation` and presents the same shared experience container used by the App Clip. During a game, a 44-point control in the top-right corner confirms that the current run will end, then opens the scrollable game selector. The close control is full-app-only and returns to Arcade. Sky Stack and Pulse contain no full-app navigation, assignment, or URL logic.
 
 ## Arcadot URLs and routing
 
-The intended production format is:
+New necklaces use a stable, game-neutral URL:
+
+```text
+https://play.lumiarcade.com/a/{arcadotID}
+https://play.lumiarcade.com/a/00025
+```
+
+Supabase resolves the Arcadot ID to `sky-stack` or `pulse`. Choosing another game from the in-game switcher updates that assignment before a fresh scene launches, so the next NFC tap—including on another phone—resolves to the new game. The Arcadot ID is retained, and score storage remains namespaced by game + Arcadot ID.
+
+Legacy deterministic and local-play routes remain supported:
 
 ```text
 https://play.lumiarcade.com/g/{gameSlug}/{arcadotID}
@@ -62,14 +71,19 @@ https://play.lumiarcade.com/play?game=sky-stack
 https://play.lumiarcade.com/play?game=pulse
 ```
 
-`sky-stack` or `pulse` identifies the game. In `/g/…` routes, the final component identifies the Arcadot; leading zeroes and case are preserved. Current valid IDs contain 1–64 ASCII letters or digits. IDs are never parsed as integers. Each game + Arcadot ID combination owns a separate local leaderboard, so Pulse Arcadots `00025` and `00026` do not share scores with each other or with Sky Stack. This identifies a local score context; it does not claim to verify physical ownership or look up an object on a server.
+Arcadot IDs preserve leading zeroes and case. Current valid IDs contain 1–64 ASCII letters or digits and are never parsed as integers. Each game + Arcadot ID combination owns a separate local leaderboard, so Pulse Arcadots `00025` and `00026` do not share scores with each other or with Sky Stack.
 
-`/play?game=…` is the direct, parameter-driven route shared by the full app and single App Clip. It selects a game without asserting a physical Arcadot ID, so scores use that game's Local Play namespace. Missing, empty, or unknown `game` values return the installed app to Arcade; the App Clip shows its minimal game fallback. The existing `/g/{game}/{arcadotID}` format remains the route to use when a physical object needs its own leaderboard.
+`/g/{game}/{arcadotID}` remains a deterministic legacy route and does not read or change Supabase. `/play?game=…` selects a game without an Arcadot ID, so scores use that game's Local Play namespace. Missing, empty, or unknown games return the installed app to Arcade; the App Clip shows the selector.
 
-`AppInvocation` carries the incoming URL. `ExperienceRouter` resolves it to a `GameInvocation` containing `GameType` and an optional Arcadot ID. `Arcadot` is a lightweight `Identifiable`, `Equatable`, `Codable` model with an ID and game. `SkyStackView` receives the Arcadot; SpriteKit never parses a URL.
+`AppInvocation` carries the incoming URL. `ExperienceRouter` resolves `/a/…` to an asynchronous Arcadot assignment or resolves direct routes to a `GameInvocation` containing `GameType` and an optional Arcadot ID. `Arcadot` is a lightweight `Identifiable`, `Equatable`, `Codable` model with an ID and game. Game views receive the resolved Arcadot; SpriteKit never parses a URL or contacts Supabase.
 
 | Input | Behavior |
 | --- | --- |
+| Valid `/a/00025`, server available | Resolves and caches the active game, then launches it for Arcadot `00025` |
+| Valid `/a/00025`, server unavailable | Launches the last cached assignment for `00025` |
+| Valid `/a/00025`, no server result or cache | Shows the selector and permits session-only play |
+| Confirmed switch on `/a/00025` | Updates Supabase, caches the result, and launches a fresh scene for the selected game |
+| Failed switch update | Keeps the existing assignment and offers Retry or Play Once |
 | Valid `/g/sky-stack/00001` on the intended HTTPS host | Immediately plays Sky Stack for Arcadot `00001` |
 | Valid `/play?game=sky-stack` or `/play?game=pulse` | Immediately plays the requested game in either installed target |
 | `/play` with a missing, empty, or unknown `game` | Full app returns to Arcade; App Clip shows its minimal picker |
@@ -81,7 +95,7 @@ https://play.lumiarcade.com/play?game=pulse
 | Unknown game on a well-formed Arcadot URL, Release | Shows a compact unsupported-experience state with an explicit Play Sky Stack action |
 | Legacy `/game/sky-stack` or unrecognized `/c/…` | Local Play; legacy opaque codes are not treated as Arcadot IDs |
 
-HTTPS callbacks use SwiftUI `onContinueUserActivity(NSUserActivityTypeBrowsingWeb)` and `onOpenURL` in both thin target roots. Both pass the URL to the same `ExperienceRouter`; games never parse it. Only `play.lumiarcade.com` is accepted for Arcadot attribution; credentials and nonstandard ports are rejected. On `/g/…` routes, query parameters do not alter the object ID. No network request occurs before rendering or play.
+HTTPS callbacks use SwiftUI `onContinueUserActivity(NSUserActivityTypeBrowsingWeb)` and `onOpenURL` in both thin target roots. Both pass the URL to the same `ExperienceRouter`; games never parse it. Only `play.lumiarcade.com` is accepted for Arcadot attribution; credentials and nonstandard ports are rejected. On `/g/…` routes, query parameters do not alter the object ID. Only `/a/…` assignment resolution and confirmed necklace switches require the network.
 
 ## Sky Stack gameplay
 
@@ -114,7 +128,7 @@ At game over:
 
 Scores are committed when Save is pressed. Leaving before saving does not create an entry. The save button is disabled while saving. A stable UUID per run makes retries idempotent; a run token prevents an old async completion from changing a restarted game. Save/read errors leave existing data intact, permit retry, and offer a continue-without-saving action rather than trapping the player.
 
-Local Play uses an internal `__local__` namespace, which cannot be supplied by a valid Arcadot URL, and displays **LOCAL PLAY**. The previous `game001.bestScore` integer migrates once into this group with initials `AAA` and the migration timestamp; it is never copied onto an Arcadot, and the legacy value is retained. App Clip data may be removed by iOS. The full app and App Clip use the same persistence code and keys but remain in separate iOS containers, so they do not synchronize scores or identity in this MVP. An App Group or backend would be an explicit future product/configuration decision.
+Local Play uses an internal `__local__` namespace, which cannot be supplied by a valid Arcadot URL, and displays **LOCAL PLAY**. The previous `game001.bestScore` integer migrates once into this group with initials `AAA` and the migration timestamp; it is never copied onto an Arcadot, and the legacy value is retained. App Clip data may be removed by iOS. The full app and App Clip use the same local persistence code and keys but remain in separate iOS containers, so scores and identity do not synchronize. Supabase persists only the necklace's active game assignment; it does not receive scores, initials, or profile data.
 
 ## Architecture and extension points
 
@@ -127,6 +141,8 @@ Local Play uses an internal `__local__` namespace, which cannot be supplied by a
 | `Shared/Product.swift`, `Configuration/Product.xcconfig` | Platform identity, intended host, display name, placeholder signing ID |
 | `Shared/GameType.swift`, `Arcadot.swift`, `GameInvocation.swift` | Canonical game registry and physical-object models |
 | `Shared/ExperienceRouter.swift`, `ExperienceRootView.swift` | Shared URL parsing and focused App Clip routing |
+| `Shared/ArcadotAssignmentService.swift` | Native URLSession Supabase client, resolver, and resilient assignment cache |
+| `Shared/ArcadeExperienceView.swift` | Shared assignment loading, game container, switch confirmation, selector, and retry UI |
 | `Shared/ArcadeGameView.swift` | Single mapping from `GameType` to existing game roots |
 | `Shared/PlayerProfileStore.swift` | Local initials, last-played game, and completed-game count |
 | `Shared/ArcadeScore.swift` | Score entries and initials validation/cycling |
@@ -135,13 +151,51 @@ Local Play uses an internal `__local__` namespace, which cannot be supplied by a
 | `SkyStack/ArcadeInitialsPicker.swift`, `ArcadeResultsView.swift` | Initials controls and compact leaderboard |
 | `SkyStack/SkyStackScene.swift`, `StackPlacement.swift`, related files | Existing game mechanics and rendering |
 | `Shared/Assets.xcassets` | Preserved stack icon shared by both targets |
-| `Tests/`, `UITests/` | Gameplay regression and arcade flow coverage |
+| `supabase/` | Arcadot table migration plus tested `arcadot-game` Edge Function |
+| `Tests/`, `UITests/` | Gameplay regression, routing, assignment, persistence, and arcade flow coverage |
 
 The game directory remains `SkyStack/`; moving it into `Games/` would add churn without improving sharing. There is no duplicated game implementation.
 
-`LeaderboardService` retains its gameplay-facing `scores(game:arcadotID:)` and `submit(_:)` API. `GameLeaderboardBrowsing` adds the full app's read-only, per-game aggregate view, implemented by the same `LocalLeaderboardService`. Session initialization still accepts a service and initial snapshot; a future remote implementation can provide cached data there, then refresh through the same async service. No endpoints, networking clients, credentials, or backend are implemented.
+`LeaderboardService` retains its gameplay-facing `scores(game:arcadotID:)` and `submit(_:)` API. `GameLeaderboardBrowsing` adds the full app's read-only, per-game aggregate view, implemented by the same `LocalLeaderboardService`. Assignment networking is isolated behind `ArcadotAssignmentService`, uses native `URLSession`, and does not change the leaderboard architecture.
 
 To add a game, add a `GameType` case with metadata and the corresponding view branch in `ArcadeGameView`. The Arcade, Leaderboards, Profile, router, and score namespace then use the same canonical identifier. Do not make the SpriteKit scene responsible for routing or networking.
+
+## Supabase assignment setup
+
+The app ships no secret key. Set only the project URL and client publishable key in `Configuration/Product.xcconfig`:
+
+```xcconfig
+LUMI_SUPABASE_URL = https:/$()/YOUR_PROJECT.supabase.co
+LUMI_SUPABASE_PUBLISHABLE_KEY = sb_publishable_REPLACE_ME
+```
+
+The `$()` construct preserves `//` in xcconfig syntax. Do not replace the publishable key with a Supabase secret/service-role key. The release build treats the checked-in placeholders as unconfigured and uses cache/session-only behavior.
+
+Link the local Supabase directory to the intended project, then apply the migration and deploy the function:
+
+```sh
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push
+supabase functions deploy arcadot-game
+```
+
+The migration creates `public.arcadots` with `id`, `active_game`, and `updated_at`, enables row-level security, and prevents clients from reading or writing the table directly. The `arcadot-game` Edge Function uses the server-side secret key and exposes:
+
+- `GET /functions/v1/arcadot-game?id=00025`
+- `PUT /functions/v1/arcadot-game` with `{ "id": "00025", "game": "pulse" }`
+
+Both calls require the configured publishable key in the `apikey` header. GET returns the current row, PUT validates the ID and game and updates an existing row, missing rows return `404`, and invalid values return `400`.
+
+Create each physical necklace row manually before provisioning its NFC tag:
+
+```sql
+insert into public.arcadots (id, active_game)
+values ('00025', 'pulse');
+```
+
+For this version, knowing a valid Arcadot ID is sufficient authorization to switch it. There is no login, PIN, or ownership claim flow, so do not treat the identifier as a secret or use this design for security-sensitive state. Supabase is authoritative; the local assignment cache is resilience-only.
+
+The pure Edge Function handler tests are in `supabase/functions/arcadot-game/handler_test.ts`. Run them with `deno test supabase/functions/arcadot-game/handler_test.ts` when Deno is available.
 
 ## Physical NFC → App Clip setup still required
 
@@ -149,7 +203,7 @@ To add a game, add a `GameType` case with metadata and the corresponding view br
 
 1. Set `SKY_STACK_BUNDLE_ID` in `Configuration/Product.xcconfig` to your registered full-app identifier and choose your Apple development team for both targets. The existing `com.example.skystack` and derived `.Clip` identifiers are retained development placeholders; no production identifiers have been invented. Register the Clip with the correct parent app. Both installed display names are already Lumi Arcade.
 2. The checked-in entitlements now declare `appclips:play.lumiarcade.com` for both targets and `applinks:play.lumiarcade.com` for the full app. Ensure these capabilities are enabled in your signing profiles. Parent/Clip relationships use the configured bundle-ID variables.
-3. Configure DNS/HTTPS and serve `https://play.lumiarcade.com/.well-known/apple-app-site-association` without redirects. Replace every identifier below with the actual signed application identifier:
+3. Configure DNS/HTTPS and serve `https://play.lumiarcade.com/.well-known/apple-app-site-association` without redirects. Start from `Deployment/apple-app-site-association.example.json`, replacing every identifier with the actual signed application identifier. Its matching paths are:
 
    ```json
    {
@@ -158,6 +212,7 @@ To add a game, add a `GameType` case with metadata and the corresponding view br
        "details": [{
          "appIDs": ["TEAM_ID.your.registered.bundle"],
          "components": [
+           {"/": "/a/*"},
            {"/": "/g/*"},
            {"/": "/play"}
          ]
@@ -166,10 +221,10 @@ To add a game, add a `GameType` case with metadata and the corresponding view br
    }
    ```
 
-4. Create the **Lumi Arcade** App Store Connect record. Archive the containing app with its Clip, validate/upload, and configure one App Clip experience/card whose matching URL covers the `/play` route. The supplied stack artwork is already the app/Clip icon; choose card artwork and metadata separately. Verify the distributed Clip size using the archive report.
-5. For development, run the signed Clip on an iPhone and register Local Experiences in Settings → Developer using `https://play.lumiarcade.com/play?game=sky-stack` and `https://play.lumiarcade.com/play?game=pulse`, the actual Clip bundle ID, and card metadata. Also test a `/g/{game}/{arcadotID}` URL when verifying Arcadot-specific score separation. Xcode URL injection exercises the handler; Local Experiences exercise the card/physical launch.
-6. Program each Arcadot with a standard NFC NDEF URI containing its HTTPS invocation URL. No Core NFC reader or in-app scan screen is needed for this invocation flow.
-7. Test both games through the card, invalid `/play` URLs through the fallback, and distinct `/g/{game}/{arcadotID}` URLs through score entry, initials, saved local boards, and restart. Check both the full-app-installed and Clip-only cases. Real NFC and haptics require hardware.
+4. Create the **Lumi Arcade** App Store Connect record. Archive the containing app with its Clip, validate/upload, and configure an App Clip experience/card whose matching URL covers `https://play.lumiarcade.com/a/`. The supplied stack artwork is already the app/Clip icon; choose card artwork and metadata separately. Verify the distributed Clip size using the archive report.
+5. For development, run the signed Clip on an iPhone and register a Local Experience in Settings → Developer using `https://play.lumiarcade.com/a/00025`, the actual Clip bundle ID, and card metadata. Xcode URL injection exercises the handler; Local Experiences exercise the card and physical launch.
+6. Create the matching row in Supabase, then program the necklace with a standard NFC NDEF URI containing its stable URL, for example `https://play.lumiarcade.com/a/00025`. Changing games does not require rewriting the NFC tag. No Core NFC reader or in-app scan screen is needed.
+7. Verify initial resolution, game switching, a second NFC tap, another phone, cache fallback while offline, an unknown ID, and Play Once after a failed update. Also test legacy `/g/{game}/{arcadotID}` score separation and `/play` Local Play. Check both the full-app-installed and Clip-only cases; iOS routes future invocations to the installed full app after it replaces its App Clip. Real NFC and haptics require hardware.
 
 Apple references: [invocation lifecycle](https://developer.apple.com/documentation/appclip/responding-to-invocations), [website association](https://developer.apple.com/documentation/appclip/associating-your-app-clip-with-your-website), [local launch testing](https://developer.apple.com/documentation/appclip/testing-the-launch-experience-of-your-app-clip).
 
@@ -183,16 +238,19 @@ Apple references: [invocation lifecycle](https://developer.apple.com/documentati
 - `-PulseGameOverPreview`: four scored gates followed by the Pulse results flow.
 - `-PulsePreviewScore N`: an explicit 0–100 point Pulse results preview.
 - `-LumiArcadeInvocationURL URL`: passes a route through the same shared router without external infrastructure.
+- `-LumiArcadeAssignmentGame GAME`: supplies a successful Debug assignment (`pulse` or `sky-stack`) without a server.
+- `-LumiArcadeAssignmentUnavailable`: forces Debug assignment requests offline to verify cache and session-only behavior.
 
 These test flags are excluded from Release behavior. The supplied icon is unchanged in `Shared/Assets.xcassets/AppIcon.appiconset`, and its original is retained in `Documentation/app-icon-original.png`. Both targets include a privacy manifest declaring app-local UserDefaults use and no collected data or tracking.
 
-## Verification of the Lumi Arcade update
+## Verification
 
-- Debug Simulator builds and unsigned Release iPhone builds succeed for the full app and embedded App Clip; both generated bundle display names are **Lumi Arcade**.
-- **13 unit tests and 4 UI tests pass across iPhone 16 Pro / iOS 18.4 and iPhone SE / iOS 17.4.** Coverage includes URL policy/ID preservation, top-five isolation and cutoff ties, legacy migration, invalid initials, corrupt-data preservation, save/reload/restart, a complete five-row compact leaderboard, and existing gameplay/camera/perfect/motion tests.
+- Debug Simulator builds succeed for the full app and embedded App Clip; both generated bundle display names are **Lumi Arcade**.
+- **27 unit tests pass.** Coverage includes necklace and legacy routing, remote success, cache isolation/fallback, timeout/unavailable/malformed/unknown responses, request validation, top-five isolation and cutoff ties, legacy migration, invalid initials, and gameplay regressions.
+- **9 UI tests pass.** They cover switch confirmation, fresh game selection, persisted reopening through cache fallback, failed-update Play Once recovery, offline session-only play, per-necklace cache isolation, both games, initials, local boards, and scene restarts.
 - The original game regression includes an 81-placement tower and 20 repeated restarts. The revised results backdrop was rebuilt and visually checked after the flow tests.
-- The icon artwork is preserved. No new artwork, third-party packages, networking, accounts, or game selection were added.
+- The icon artwork is preserved. No third-party iOS package, account system, or remote leaderboard was added.
 - Xcode emits its standard App Intents metadata notice; no Swift source warnings were introduced.
-- Physical NFC/card invocation, provisioning, distribution, haptic sensation, and real VoiceOver usability remain device/deployment checks.
+- Supabase linking/deployment, physical NFC/card invocation, signing/provisioning, distribution, haptic sensation, and real VoiceOver usability remain environment/device checks.
 
 Current previews: [initials entry](Documentation/initials-iPhoneSE.png) and [leaderboard](Documentation/leaderboard-iPhoneSE.png). Internal test IDs in board previews are test-only; production Arcadots use their actual alphanumeric identifiers.

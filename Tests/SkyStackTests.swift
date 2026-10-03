@@ -72,6 +72,155 @@ final class SkyStackTests: XCTestCase {
         }
     }
 
+    func testGameNeutralArcadotRoutesAndInvalidFallbacks() throws {
+        let router = ExperienceRouter(unknownGamePolicy: .fallback)
+        for id in ["00025", "A72K9", "necklace01"] {
+            let url = try XCTUnwrap(URL(string: "https://play.lumiarcade.com/a/\(id)"))
+            XCTAssertEqual(router.route(from: url), .arcadot(id))
+        }
+        for raw in [
+            "https://play.lumiarcade.com/a",
+            "https://play.lumiarcade.com/a/",
+            "https://play.lumiarcade.com/a/A%2FB",
+            "https://play.lumiarcade.com/a/00025/extra"
+        ] {
+            let url = try XCTUnwrap(URL(string: raw))
+            XCTAssertEqual(router.route(from: url), .fallback, raw)
+        }
+        XCTAssertEqual(
+            router.route(from: try XCTUnwrap(URL(string: "https://other.example/a/00025"))),
+            .game(.localPlay)
+        )
+    }
+
+    func testArcadotAssignmentCacheIsIsolatedByID() throws {
+        let name = "ArcadotAssignmentCache.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cache = UserDefaultsArcadotAssignmentCache(defaults: defaults)
+        XCTAssertNil(cache.game(for: "00025"))
+        cache.save(game: .pulse, for: "00025")
+        cache.save(game: .skyStack, for: "00026")
+        XCTAssertEqual(cache.game(for: "00025"), .pulse)
+        XCTAssertEqual(cache.game(for: "00026"), .skyStack)
+        XCTAssertNil(cache.game(for: "00027"))
+    }
+
+    func testArcadotAssignmentResolverUsesRemoteThenCacheFallback() async throws {
+        let name = "ArcadotAssignmentResolver.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let cache = UserDefaultsArcadotAssignmentCache(defaults: defaults)
+        let remote = StubArcadotAssignmentService(
+            assignmentResult: .success(ArcadotAssignment(arcadotID: "00025", game: .pulse,
+                                                         updatedAt: nil))
+        )
+        let first = await ArcadotAssignmentResolver(service: remote, cache: cache).resolve("00025")
+        XCTAssertEqual(first, .remote(.pulse))
+        XCTAssertEqual(cache.game(for: "00025"), .pulse)
+
+        let offline = StubArcadotAssignmentService(
+            assignmentResult: .failure(ArcadotAssignmentError.unavailable)
+        )
+        let cached = await ArcadotAssignmentResolver(service: offline, cache: cache).resolve("00025")
+        XCTAssertEqual(cached, .cached(.pulse))
+        let unavailable = await ArcadotAssignmentResolver(service: offline, cache: cache).resolve("00026")
+        XCTAssertEqual(unavailable, .unavailable)
+    }
+
+    func testSupabaseAssignmentServiceBuildsRequestsAndDecodesResponses() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let service = SupabaseArcadotAssignmentService(
+            configuration: SupabaseArcadotAssignmentConfiguration(
+                projectURL: try XCTUnwrap(URL(string: "https://project.supabase.co")),
+                publishableKey: "sb_publishable_test"
+            ),
+            session: session
+        )
+
+        StubURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "apikey"), "sb_publishable_test")
+            XCTAssertEqual(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)?
+                .queryItems?.first?.value, "00025")
+            let data = Data(#"{"id":"00025","active_game":"pulse","updated_at":"2026-10-03T00:00:00.123456+00:00"}"#.utf8)
+            return (HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200,
+                                    httpVersion: nil, headerFields: nil)!, data)
+        }
+        let assignment = try await service.assignment(for: "00025")
+        XCTAssertEqual(assignment.arcadotID, "00025")
+        XCTAssertEqual(assignment.game, .pulse)
+        XCTAssertNotNil(assignment.updatedAt)
+
+        StubURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "PUT")
+            let body = try XCTUnwrap(requestBodyData(request))
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+            XCTAssertEqual(object, ["id": "00025", "game": "sky-stack"])
+            let data = Data(#"{"id":"00025","active_game":"sky-stack","updated_at":"2026-10-03T00:01:00Z"}"#.utf8)
+            return (HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200,
+                                    httpVersion: nil, headerFields: nil)!, data)
+        }
+        let updated = try await service.update(game: .skyStack, for: "00025")
+        XCTAssertEqual(updated.game, .skyStack)
+    }
+
+    func testSupabaseAssignmentServiceMapsNotFoundAndMalformedResponses() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let service = SupabaseArcadotAssignmentService(
+            configuration: SupabaseArcadotAssignmentConfiguration(
+                projectURL: try XCTUnwrap(URL(string: "https://project.supabase.co")),
+                publishableKey: "sb_publishable_test"
+            ),
+            session: URLSession(configuration: configuration)
+        )
+        StubURLProtocol.handler = { request in
+            (HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 404,
+                             httpVersion: nil, headerFields: nil)!, Data())
+        }
+        do {
+            _ = try await service.assignment(for: "00025")
+            XCTFail("Expected a not-found error")
+        } catch {
+            XCTAssertEqual(error as? ArcadotAssignmentError, .arcadotNotFound)
+        }
+
+        StubURLProtocol.handler = { request in
+            let data = Data(#"{"id":"00025","active_game":"unknown"}"#.utf8)
+            return (HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 200,
+                                    httpVersion: nil, headerFields: nil)!, data)
+        }
+        do {
+            _ = try await service.assignment(for: "00025")
+            XCTFail("Expected an invalid-response error")
+        } catch {
+            XCTAssertEqual(error as? ArcadotAssignmentError, .invalidResponse)
+        }
+    }
+
+    func testSupabaseAssignmentServiceMapsTimeoutToUnavailable() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let service = SupabaseArcadotAssignmentService(
+            configuration: SupabaseArcadotAssignmentConfiguration(
+                projectURL: try XCTUnwrap(URL(string: "https://project.supabase.co")),
+                publishableKey: "sb_publishable_test"
+            ),
+            session: URLSession(configuration: configuration)
+        )
+        StubURLProtocol.handler = { _ in throw URLError(.timedOut) }
+
+        do {
+            _ = try await service.assignment(for: "00025")
+            XCTFail("Expected an unavailable error")
+        } catch {
+            XCTAssertEqual(error as? ArcadotAssignmentError, .unavailable)
+        }
+    }
+
     func testGameRegistryContainsEveryImplementedGame() {
         XCTAssertEqual(Set(GameType.allCases), Set([.skyStack, .pulse]))
         for game in GameType.allCases {
@@ -453,4 +602,56 @@ final class SkyStackTests: XCTestCase {
         XCTAssertEqual(session.bestScore, 81)
         view.presentScene(nil)
     }
+}
+
+private func requestBodyData(_ request: URLRequest) -> Data? {
+    if let body = request.httpBody { return body }
+    guard let stream = request.httpBodyStream else { return nil }
+    stream.open()
+    defer { stream.close() }
+    var result = Data()
+    var buffer = [UInt8](repeating: 0, count: 1_024)
+    while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        guard count > 0 else { break }
+        result.append(buffer, count: count)
+    }
+    return result
+}
+
+private struct StubArcadotAssignmentService: ArcadotAssignmentService {
+    let assignmentResult: Result<ArcadotAssignment, Error>
+    var updateResult: Result<ArcadotAssignment, Error> = .failure(ArcadotAssignmentError.unavailable)
+
+    func assignment(for arcadotID: String) async throws -> ArcadotAssignment {
+        try assignmentResult.get()
+    }
+
+    func update(game: GameType, for arcadotID: String) async throws -> ArcadotAssignment {
+        try updateResult.get()
+    }
+}
+
+private final class StubURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: ArcadotAssignmentError.unavailable)
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }

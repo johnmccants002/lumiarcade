@@ -1,0 +1,27 @@
+{
+  "appclips": {
+    "apps": [
+      "TEAM_ID.your.registered.bundle.Clip"
+    ]
+  },
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "TEAM_ID.your.registered.bundle"
+        ],
+        "components": [
+          {
+            "/": "/a/*"
+          },
+          {
+            "/": "/g/*"
+          },
+          {
+            "/": "/play"
+          }
+        ]
+      }
+    ]
+  }
+}

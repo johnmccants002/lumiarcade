@@ -78,7 +78,7 @@ def buildref(name):
     return f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:"+name)}" BuildableName="{name}.app" BlueprintName="{name}" ReferencedContainer="container:SkyStack.xcodeproj"/>'
 scheme_specs = [
     ('SkyStack', 'SkyStack', None),
-    ('SkyStackClip', 'SkyStackClip', 'https://play.lumiarcade.com/play?game=sky-stack'),
+    ('SkyStackClip', 'SkyStackClip', 'https://play.lumiarcade.com/a/00025'),
 ]
 for name, target_name, invocation_url in scheme_specs:
     testables=''

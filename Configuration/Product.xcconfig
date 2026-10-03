@@ -3,3 +3,8 @@ SKY_STACK_BUNDLE_ID = com.example.skystack
 SKY_STACK_DISPLAY_NAME = Lumi Arcade
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
+
+// Public client configuration. Replace these placeholders for device builds.
+// $() keeps the // in an HTTPS URL from being parsed as an xcconfig comment.
+LUMI_SUPABASE_URL = https:/$()/YOUR_PROJECT.supabase.co
+LUMI_SUPABASE_PUBLISHABLE_KEY = sb_publishable_REPLACE_ME

@@ -1,8 +1,9 @@
 import Foundation
 
 struct ExperienceRouter {
-    enum Experience: Equatable {
+    enum Experience: Equatable, Hashable {
         case game(GameInvocation)
+        case arcadot(String)
         case fallback
         case unsupported
     }
@@ -38,6 +39,11 @@ struct ExperienceRouter {
                   !rawGame.isEmpty,
                   let game = GameType(rawValue: rawGame) else { return .fallback }
             return .game(GameInvocation(game: game, arcadotID: nil))
+        }
+
+        if path.first == "a" {
+            guard path.count == 2, Arcadot.isValidID(path[1]) else { return .fallback }
+            return .arcadot(path[1])
         }
 
         // Retain the early game-only links; opaque legacy /c/ codes are not
