@@ -22,6 +22,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LumiSupabasePublishableKey</key>
+	<string>$(LUMI_SUPABASE_PUBLISHABLE_KEY)</string>
+	<key>LumiSupabaseURL</key>
+	<string>$(LUMI_SUPABASE_URL)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

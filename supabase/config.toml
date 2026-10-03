@@ -1,0 +1,2 @@
+[functions.arcadot-game]
+verify_jwt = false

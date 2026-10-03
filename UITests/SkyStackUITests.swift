@@ -136,4 +136,82 @@ final class SkyStackUITests: XCTestCase {
         }
         XCTAssertFalse(app.staticTexts["finalScore"].exists)
     }
+
+    @MainActor
+    func testNecklaceSwitchPersistsThroughAssignmentCacheFallback() {
+        let app = XCUIApplication()
+        let id = "SWITCH" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let url = "https://play.lumiarcade.com/a/" + id
+        app.launchArguments = ["-LumiArcadeInvocationURL", url,
+                               "-LumiArcadeAssignmentGame", "pulse"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+        app.buttons["switchGame"].tap()
+        XCTAssertTrue(app.buttons["Switch Games"].waitForExistence(timeout: 2))
+        app.buttons["Switch Games"].tap()
+        XCTAssertTrue(app.buttons["select-sky-stack"].waitForExistence(timeout: 3))
+        app.buttons["select-sky-stack"].tap()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+
+        app.terminate()
+        app.launchArguments = ["-LumiArcadeInvocationURL", url,
+                               "-LumiArcadeAssignmentUnavailable"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["switchGame"].exists)
+
+        app.buttons["switchGame"].tap()
+        XCTAssertTrue(app.buttons["Switch Games"].waitForExistence(timeout: 2))
+        app.buttons["Switch Games"].tap()
+        XCTAssertTrue(app.buttons["select-pulse"].waitForExistence(timeout: 3))
+        app.buttons["select-pulse"].tap()
+        XCTAssertTrue(app.buttons["retryAssignment"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["playOnce"].exists)
+        app.buttons["playOnce"].tap()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testOfflineNecklaceWithoutCacheAllowsSessionOnlyPlay() {
+        let app = XCUIApplication()
+        let id = "OFFLINE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/a/" + id,
+                               "-LumiArcadeAssignmentUnavailable"]
+        app.launch()
+        XCTAssertTrue(app.buttons["select-pulse"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["select-sky-stack"].exists)
+        app.buttons["select-pulse"].tap()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testDifferentNecklacesKeepIndependentCachedAssignments() {
+        let app = XCUIApplication()
+        let suffix = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let pulseURL = "https://play.lumiarcade.com/a/P" + suffix
+        let stackURL = "https://play.lumiarcade.com/a/S" + suffix
+
+        app.launchArguments = ["-LumiArcadeInvocationURL", pulseURL,
+                               "-LumiArcadeAssignmentGame", "pulse"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+        app.terminate()
+
+        app.launchArguments = ["-LumiArcadeInvocationURL", stackURL,
+                               "-LumiArcadeAssignmentGame", "sky-stack"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+        app.terminate()
+
+        app.launchArguments = ["-LumiArcadeInvocationURL", pulseURL,
+                               "-LumiArcadeAssignmentUnavailable"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
+        app.terminate()
+
+        app.launchArguments = ["-LumiArcadeInvocationURL", stackURL,
+                               "-LumiArcadeAssignmentUnavailable"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["TAP TO STACK"].waitForExistence(timeout: 5))
+    }
 }

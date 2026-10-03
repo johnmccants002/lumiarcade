@@ -7,15 +7,15 @@ enum FullAppTab: Hashable {
 struct FullAppRootView: View {
     @StateObject private var model = FullAppModel()
     @State private var selectedTab: FullAppTab = .arcade
-    @State private var activeGame: GameInvocation?
+    @State private var activeExperience: ExperienceRouter.Experience?
     @State private var didHandleDebugInvocation = false
     private let router = ExperienceRouter()
 
     var body: some View {
         Group {
-            if let invocation = activeGame {
-                gamePresentation(invocation)
-                    .id(invocation)
+            if let experience = activeExperience {
+                gamePresentation(experience)
+                    .id(experience)
             } else {
                 tabs
             }
@@ -50,39 +50,29 @@ struct FullAppRootView: View {
         }
     }
 
-    private func gamePresentation(_ invocation: GameInvocation) -> some View {
-        ZStack(alignment: .topTrailing) {
-            ArcadeGameView(invocation: invocation)
-            Button {
-                activeGame = nil
+    private func gamePresentation(_ experience: ExperienceRouter.Experience) -> some View {
+        ArcadeExperienceView(experience: experience) {
+                activeExperience = nil
                 selectedTab = .arcade
                 model.refresh()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial, in: Circle())
             }
-            .foregroundStyle(.white)
-            .padding(.top, 12)
-            .padding(.trailing, 16)
-            .accessibilityLabel("Return to Arcade")
-            .accessibilityIdentifier("exitGame")
-        }
     }
 
     private func launch(_ game: GameType) {
         model.recordGameLaunch(game)
-        activeGame = GameInvocation(game: game, arcadotID: nil)
+        activeExperience = .game(GameInvocation(game: game, arcadotID: nil))
     }
 
     private func open(_ url: URL) {
-        switch router.route(from: url) {
+        let experience = router.route(from: url)
+        switch experience {
         case .game(let invocation):
             model.recordGameLaunch(invocation.game)
-            activeGame = invocation
+            activeExperience = experience
+        case .arcadot:
+            activeExperience = experience
         case .fallback, .unsupported:
-            activeGame = nil
+            activeExperience = nil
             selectedTab = .arcade
             model.refresh()
         }
