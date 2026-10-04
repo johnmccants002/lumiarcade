@@ -21,6 +21,7 @@ struct ArcadeExperienceView: View {
     @State private var pendingGame: GameType?
     @State private var showSwitchConfirmation = false
     @State private var isSessionOnlySelection = false
+    @State private var switchRequiresConfirmation = true
 
     init(experience: ExperienceRouter.Experience,
          onExit: (() -> Void)? = nil,
@@ -37,7 +38,9 @@ struct ArcadeExperienceView: View {
             ArcadeTheme.background.ignoresSafeArea()
 
             if let activeGame {
-                ArcadeGameView(invocation: activeGame)
+                ArcadeGameView(invocation: activeGame) { requiresConfirmation in
+                    switchRequiresConfirmation = requiresConfirmation
+                }
                     .id(activeGame)
             } else if isResolving {
                 resolvingView
@@ -85,7 +88,11 @@ struct ArcadeExperienceView: View {
                 if activeGame != nil {
                     chromeButton(systemName: "square.grid.2x2", label: "Switch games",
                                  identifier: "switchGame") {
-                        showSwitchConfirmation = true
+                        if switchRequiresConfirmation {
+                            showSwitchConfirmation = true
+                        } else {
+                            beginSwitching()
+                        }
                     }
                 }
             }
@@ -177,6 +184,7 @@ struct ArcadeExperienceView: View {
         saveError = nil
         pendingGame = nil
         isSessionOnlySelection = false
+        switchRequiresConfirmation = true
     }
 
     private func beginSwitching() {
@@ -239,6 +247,7 @@ struct ArcadeExperienceView: View {
         pendingGame = nil
         saveError = nil
         isSelecting = false
+        switchRequiresConfirmation = true
         activeGame = GameInvocation(game: game, arcadotID: arcadotID)
     }
 }

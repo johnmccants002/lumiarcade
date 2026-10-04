@@ -14,15 +14,22 @@ final class PulseGame: ObservableObject {
 
 struct PulseView: View {
     @StateObject private var game: PulseGame
+    private let switchConfirmationRequirementChanged: (Bool) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
-    init(arcadot: Arcadot? = nil) {
+    init(arcadot: Arcadot? = nil,
+         switchConfirmationRequirementChanged: @escaping (Bool) -> Void = { _ in }) {
         _game = StateObject(wrappedValue: PulseGame(arcadot: arcadot))
+        self.switchConfirmationRequirementChanged = switchConfirmationRequirementChanged
     }
 
     var body: some View {
-        PulseContent(session: game.session, scene: game.scene)
+        PulseContent(
+            session: game.session,
+            scene: game.scene,
+            switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
+        )
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     game.scene.isPaused = false
@@ -46,6 +53,7 @@ struct PulseView: View {
 private struct PulseContent: View {
     @ObservedObject var session: PulseSession
     let scene: PulseScene
+    let switchConfirmationRequirementChanged: (Bool) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -110,5 +118,13 @@ private struct PulseContent: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: session.state)
+        .onAppear(perform: updateSwitchConfirmationRequirement)
+        .onChange(of: session.state) { _, _ in updateSwitchConfirmationRequirement() }
+        .onChange(of: session.resultStage) { _, _ in updateSwitchConfirmationRequirement() }
+    }
+
+    private func updateSwitchConfirmationRequirement() {
+        let hasUnsavedRun = session.state != .gameOver || session.resultStage == .initials
+        switchConfirmationRequirementChanged(hasUnsavedRun)
     }
 }

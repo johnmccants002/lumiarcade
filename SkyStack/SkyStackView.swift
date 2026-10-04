@@ -14,15 +14,22 @@ final class SkyStackGame: ObservableObject {
 
 struct SkyStackView: View {
     @StateObject private var game: SkyStackGame
+    private let switchConfirmationRequirementChanged: (Bool) -> Void
 
-    init(arcadot: Arcadot? = nil) {
+    init(arcadot: Arcadot? = nil,
+         switchConfirmationRequirementChanged: @escaping (Bool) -> Void = { _ in }) {
         _game = StateObject(wrappedValue: SkyStackGame(arcadot: arcadot))
+        self.switchConfirmationRequirementChanged = switchConfirmationRequirementChanged
     }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        SkyStackContent(session: game.session, scene: game.scene)
+        SkyStackContent(
+            session: game.session,
+            scene: game.scene,
+            switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
+        )
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { game.scene.isPaused = false; game.scene.resumeClock() }
                 else { game.scene.suspend() }
@@ -42,6 +49,7 @@ struct SkyStackView: View {
 private struct SkyStackContent: View {
     @ObservedObject var session: SkyStackSession
     let scene: SkyStackScene
+    let switchConfirmationRequirementChanged: (Bool) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -96,7 +104,15 @@ private struct SkyStackContent: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: session.state)
+        .onAppear(perform: updateSwitchConfirmationRequirement)
+        .onChange(of: session.state) { _, _ in updateSwitchConfirmationRequirement() }
+        .onChange(of: session.resultStage) { _, _ in updateSwitchConfirmationRequirement() }
 
+    }
+
+    private func updateSwitchConfirmationRequirement() {
+        let hasUnsavedRun = session.state != .gameOver || session.resultStage == .initials
+        switchConfirmationRequirementChanged(hasUnsavedRun)
     }
 
 }

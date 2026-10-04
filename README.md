@@ -47,7 +47,7 @@ The installed app has three native tabs:
 - **Leaderboards** aggregates the existing top-five boards for the selected game across Local Play and known Arcadot IDs on this installation. It has loading, empty, and storage-error states; it does not claim to be an online global board.
 - **Profile** reuses the three-character `ArcadeInitialsPicker`, persists the selected initials, shows completed games recorded from this version onward, and shows each game's local high score.
 
-Selecting a game creates a normal `GameInvocation` and presents the same shared experience container used by the App Clip. During a game, a 44-point control in the top-right corner confirms that the current run will end, then opens the scrollable game selector. The close control is full-app-only and returns to Arcade. Sky Stack and Pulse contain no full-app navigation, assignment, or URL logic.
+Selecting a game creates a normal `GameInvocation` and presents the same shared experience container used by the App Clip. During an active or unsaved run, a 44-point control in the top-right corner confirms that the run will end before opening the scrollable game selector. Once results are finalized by saving the score or continuing without saving, that control opens the selector immediately. The close control is full-app-only and returns to Arcade. Sky Stack and Pulse contain no full-app navigation, assignment, or URL logic.
 
 ## Arcadot URLs and routing
 
@@ -247,7 +247,7 @@ These test flags are excluded from Release behavior. The supplied icon is unchan
 
 - Debug Simulator builds succeed for the full app and embedded App Clip; both generated bundle display names are **Lumi Arcade**.
 - **27 unit tests pass.** Coverage includes necklace and legacy routing, remote success, cache isolation/fallback, timeout/unavailable/malformed/unknown responses, request validation, top-five isolation and cutoff ties, legacy migration, invalid initials, and gameplay regressions.
-- **9 UI tests pass.** They cover switch confirmation, fresh game selection, persisted reopening through cache fallback, failed-update Play Once recovery, offline session-only play, per-necklace cache isolation, both games, initials, local boards, and scene restarts.
+- **10 UI tests pass.** They cover active-run switch confirmation, direct switching after a saved score, fresh game selection, persisted reopening through cache fallback, failed-update Play Once recovery, offline session-only play, per-necklace cache isolation, both games, initials, local boards, and scene restarts.
 - The original game regression includes an 81-placement tower and 20 repeated restarts. The revised results backdrop was rebuilt and visually checked after the flow tests.
 - The icon artwork is preserved. No third-party iOS package, account system, or remote leaderboard was added.
 - Xcode emits its standard App Intents metadata notice; no Swift source warnings were introduced.

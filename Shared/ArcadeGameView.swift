@@ -4,14 +4,21 @@ import SwiftUI
 /// Neither game needs to know whether it came from the full app, App Clip, or NFC.
 struct ArcadeGameView: View {
     let invocation: GameInvocation
+    var switchConfirmationRequirementChanged: (Bool) -> Void = { _ in }
 
     @ViewBuilder
     var body: some View {
         switch invocation.game {
         case .skyStack:
-            SkyStackView(arcadot: invocation.arcadot)
+            SkyStackView(
+                arcadot: invocation.arcadot,
+                switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
+            )
         case .pulse:
-            PulseView(arcadot: invocation.arcadot)
+            PulseView(
+                arcadot: invocation.arcadot,
+                switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
+            )
         }
     }
 }

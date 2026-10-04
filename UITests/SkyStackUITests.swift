@@ -172,6 +172,24 @@ final class SkyStackUITests: XCTestCase {
     }
 
     @MainActor
+    func testSavedScoreSwitchOpensSelectorWithoutRunEndConfirmation() {
+        let app = XCUIApplication()
+        let id = "SAVED" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        app.launchArguments = [
+            "-LumiArcadeInvocationURL", "https://play.lumiarcade.com/g/sky-stack/" + id,
+            "-SkyStackPreviewScore", "7"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
+        app.buttons["saveScore"].tap()
+        XCTAssertTrue(app.buttons["playAgain"].waitForExistence(timeout: 5))
+
+        app.buttons["switchGame"].tap()
+        XCTAssertTrue(app.buttons["select-pulse"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Switch Games"].exists)
+    }
+
+    @MainActor
     func testOfflineNecklaceWithoutCacheAllowsSessionOnlyPlay() {
         let app = XCUIApplication()
         let id = "OFFLINE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
