@@ -5,3 +5,5 @@ DerivedData/
 xcuserdata/
 *.xcresult
 __pycache__/
+.env.provisioning
+supabase/.temp/

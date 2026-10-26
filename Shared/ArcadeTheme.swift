@@ -8,6 +8,7 @@ enum ArcadeTheme {
         switch game {
         case .skyStack: return Color(red: 0.98, green: 0.78, blue: 0.42)
         case .pulse: return Color(red: 0.38, green: 0.9, blue: 1)
+        case .orbit: return Color(red: 0.78, green: 0.52, blue: 1)
         }
     }
 }

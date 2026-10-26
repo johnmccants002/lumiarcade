@@ -31,22 +31,26 @@ final class SkyStackTests: XCTestCase {
     func testArcadotRoutesAndUnknownGamePolicies() {
         let router = ExperienceRouter(unknownGamePolicy: .fallback)
         for id in ["00001", "A72K9", "X82K4"] {
-            let url = URL(string: "https://play.lumiarcade.com/g/sky-stack/\(id)?source=nfc")
+            let url = URL(string: "https://play.luminecklace.com/g/sky-stack/\(id)?source=nfc")
             let result = router.resolve(AppInvocation(url: url))
             XCTAssertEqual(result, .game(GameInvocation(game: .skyStack, arcadotID: id)))
         }
         XCTAssertEqual(
-            router.resolve(AppInvocation(url: URL(string: "https://play.lumiarcade.com/g/pulse/00025"))),
+            router.resolve(AppInvocation(url: URL(string: "https://play.luminecklace.com/g/pulse/00025"))),
             .game(GameInvocation(game: .pulse, arcadotID: "00025"))
         )
-        for raw in ["https://play.lumiarcade.com/g/sky-stack/", "https://play.lumiarcade.com/g/sky-stack/A%2FB",
-                    "https://play.lumiarcade.com/g/sky-stack/00001/extra", "http://play.lumiarcade.com/g/sky-stack/00001",
-                    "https://other.example/g/sky-stack/00001", "https://play.lumiarcade.com/g/sky-stack/__local__",
-                    "https://play.lumiarcade.com/game/sky-stack"] {
+        XCTAssertEqual(
+            router.resolve(AppInvocation(url: URL(string: "https://play.luminecklace.com/g/orbit/00042"))),
+            .game(GameInvocation(game: .orbit, arcadotID: "00042"))
+        )
+        for raw in ["https://play.luminecklace.com/g/sky-stack/", "https://play.luminecklace.com/g/sky-stack/A%2FB",
+                    "https://play.luminecklace.com/g/sky-stack/00001/extra", "http://play.luminecklace.com/g/sky-stack/00001",
+                    "https://other.example/g/sky-stack/00001", "https://play.luminecklace.com/g/sky-stack/__local__",
+                    "https://play.luminecklace.com/game/sky-stack"] {
             XCTAssertEqual(router.resolve(AppInvocation(url: URL(string: raw))), .game(.localPlay))
         }
         XCTAssertEqual(router.resolve(AppInvocation()), .game(.localPlay))
-        let unknown = AppInvocation(url: URL(string: "https://play.lumiarcade.com/g/bounce/00001"))
+        let unknown = AppInvocation(url: URL(string: "https://play.luminecklace.com/g/bounce/00001"))
         XCTAssertEqual(router.resolve(unknown), .game(.localPlay))
         XCTAssertEqual(ExperienceRouter(unknownGamePolicy: .unsupported).resolve(unknown), .unsupported)
     }
@@ -54,18 +58,22 @@ final class SkyStackTests: XCTestCase {
     func testQueryGameRoutesAndSafeFallback() throws {
         let router = ExperienceRouter(unknownGamePolicy: .fallback)
         XCTAssertEqual(
-            router.route(from: try XCTUnwrap(URL(string: "https://play.lumiarcade.com/play?game=sky-stack"))),
+            router.route(from: try XCTUnwrap(URL(string: "https://play.luminecklace.com/play?game=sky-stack"))),
             .game(GameInvocation(game: .skyStack, arcadotID: nil))
         )
         XCTAssertEqual(
-            router.route(from: try XCTUnwrap(URL(string: "https://play.lumiarcade.com/play?game=pulse"))),
+            router.route(from: try XCTUnwrap(URL(string: "https://play.luminecklace.com/play?game=pulse"))),
             .game(GameInvocation(game: .pulse, arcadotID: nil))
         )
+        XCTAssertEqual(
+            router.route(from: try XCTUnwrap(URL(string: "https://play.luminecklace.com/play?game=orbit"))),
+            .game(GameInvocation(game: .orbit, arcadotID: nil))
+        )
         for raw in [
-            "https://play.lumiarcade.com/play",
-            "https://play.lumiarcade.com/play?game=",
-            "https://play.lumiarcade.com/play?game=unknown",
-            "https://play.lumiarcade.com/play?game=%25"
+            "https://play.luminecklace.com/play",
+            "https://play.luminecklace.com/play?game=",
+            "https://play.luminecklace.com/play?game=unknown",
+            "https://play.luminecklace.com/play?game=%25"
         ] {
             let url = try XCTUnwrap(URL(string: raw))
             XCTAssertEqual(router.route(from: url), .fallback, raw)
@@ -75,14 +83,14 @@ final class SkyStackTests: XCTestCase {
     func testGameNeutralArcadotRoutesAndInvalidFallbacks() throws {
         let router = ExperienceRouter(unknownGamePolicy: .fallback)
         for id in ["00025", "A72K9", "necklace01"] {
-            let url = try XCTUnwrap(URL(string: "https://play.lumiarcade.com/a/\(id)"))
+            let url = try XCTUnwrap(URL(string: "https://play.luminecklace.com/a/\(id)"))
             XCTAssertEqual(router.route(from: url), .arcadot(id))
         }
         for raw in [
-            "https://play.lumiarcade.com/a",
-            "https://play.lumiarcade.com/a/",
-            "https://play.lumiarcade.com/a/A%2FB",
-            "https://play.lumiarcade.com/a/00025/extra"
+            "https://play.luminecklace.com/a",
+            "https://play.luminecklace.com/a/",
+            "https://play.luminecklace.com/a/A%2FB",
+            "https://play.luminecklace.com/a/00025/extra"
         ] {
             let url = try XCTUnwrap(URL(string: raw))
             XCTAssertEqual(router.route(from: url), .fallback, raw)
@@ -222,7 +230,7 @@ final class SkyStackTests: XCTestCase {
     }
 
     func testGameRegistryContainsEveryImplementedGame() {
-        XCTAssertEqual(Set(GameType.allCases), Set([.skyStack, .pulse]))
+        XCTAssertEqual(Set(GameType.allCases), Set([.skyStack, .pulse, .orbit]))
         for game in GameType.allCases {
             XCTAssertFalse(game.displayName.isEmpty)
             XCTAssertFalse(game.gameNumber.isEmpty)
@@ -333,6 +341,67 @@ final class SkyStackTests: XCTestCase {
         let gate = PulseObstaclePair(sceneHeight: 568, gapCenterY: range.lowerBound, gapHeight: PulseConfig.initialGapHeight)
         XCTAssertTrue(gate.claimScore())
         XCTAssertFalse(gate.claimScore())
+    }
+
+    func testOrbitDifficultyTimingAndDirectionAreFrameIndependent() {
+        var previousSpeed = OrbitConfig.angularSpeed(survivalTime: 0)
+        var previousInterval = OrbitConfig.spawnInterval(survivalTime: 0)
+        for second in 0...300 {
+            let speed = OrbitConfig.angularSpeed(survivalTime: TimeInterval(second))
+            let interval = OrbitConfig.spawnInterval(survivalTime: TimeInterval(second))
+            XCTAssertGreaterThanOrEqual(speed, previousSpeed)
+            XCTAssertLessThanOrEqual(speed, OrbitConfig.maximumAngularSpeed)
+            XCTAssertLessThanOrEqual(interval, previousInterval)
+            XCTAssertGreaterThanOrEqual(interval, OrbitConfig.minimumSpawnInterval)
+            previousSpeed = speed
+            previousInterval = interval
+        }
+
+        let session = OrbitSession(service: NoopLeaderboardService())
+        let initialAngle = session.playerAngle
+        session.begin()
+        XCTAssertNil(session.advance(deltaTime: 0.4))
+        XCTAssertEqual(session.advance(deltaTime: 0.7), 1)
+        XCTAssertGreaterThan(session.playerAngle, initialAngle)
+        let angleBeforeReverse = session.playerAngle
+        session.reverseDirection()
+        XCTAssertEqual(session.direction, -1)
+        XCTAssertTrue(session.hasReversed)
+        _ = session.advance(deltaTime: 0.2)
+        XCTAssertLessThan(session.playerAngle, angleBeforeReverse)
+        _ = session.advance(deltaTime: 2.1)
+        XCTAssertEqual(session.score, 3)
+        session.end()
+        XCTAssertEqual(session.state, .gameOver)
+        session.reset()
+        XCTAssertEqual(session.state, .ready)
+        XCTAssertEqual(session.score, 0)
+        XCTAssertEqual(session.direction, 1)
+        XCTAssertFalse(session.hasReversed)
+    }
+
+    @MainActor
+    func testOrbitLeaderboardAndReplayUseSharedInfrastructure() async throws {
+        let name = "LumiArcadeOrbitSession.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let arcadot = Arcadot(id: "00042", game: .orbit)
+        let session = OrbitSession(defaults: defaults, arcadot: arcadot)
+        session.begin()
+        _ = session.advance(deltaTime: 4.2)
+        session.end()
+        XCTAssertEqual(session.score, 4)
+        XCTAssertEqual(session.resultStage, .initials)
+        session.initials = "ORB"
+        await session.saveScore()
+        XCTAssertEqual(session.leaderboard.map(\.score), [4])
+        XCTAssertEqual(session.leaderboard.first?.game, .orbit)
+        XCTAssertEqual(session.identityLabel, "ARCADOT #00042")
+
+        session.reset()
+        XCTAssertEqual(session.state, .ready)
+        XCTAssertEqual(session.targetBest, 4)
+        XCTAssertEqual(OrbitSession(defaults: defaults, arcadot: arcadot).bestScore, 4)
     }
 
     @MainActor
@@ -630,6 +699,11 @@ private struct StubArcadotAssignmentService: ArcadotAssignmentService {
     func update(game: GameType, for arcadotID: String) async throws -> ArcadotAssignment {
         try updateResult.get()
     }
+}
+
+private struct NoopLeaderboardService: LeaderboardService {
+    func scores(game: GameType, arcadotID: String) async throws -> [ArcadeScore] { [] }
+    func submit(_ score: ArcadeScore) async throws {}
 }
 
 private final class StubURLProtocol: URLProtocol {

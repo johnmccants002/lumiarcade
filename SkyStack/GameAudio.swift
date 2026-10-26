@@ -2,7 +2,11 @@ import AVFoundation
 
 /// All synthesis and audio-session work happens away from rendering and touch handling.
 final class GameAudio {
-    enum Cue: Hashable { case placement, perfect(Int), alignment, pulseGate, pulseHigh, pulseCollision }
+    enum Cue: Hashable {
+        case placement, perfect(Int), alignment
+        case pulseGate, pulseHigh, pulseCollision
+        case orbitReverse, orbitMilestone, orbitCollision
+    }
     private let queue = DispatchQueue(label: "lumiarcade.audio", qos: .utility)
     private var players: [Cue: AVAudioPlayer] = [:]
     private var prepared = false
@@ -17,11 +21,14 @@ final class GameAudio {
                 try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
                 let cues: [(Cue, Double, Double)] = [(.placement, 220, 0.045), (.alignment, 880, 0.07),
                                                      (.pulseGate, 660, 0.055), (.pulseHigh, 990, 0.13),
-                                                     (.pulseCollision, 105, 0.16)]
+                                                     (.pulseCollision, 105, 0.16),
+                                                     (.orbitReverse, 440, 0.045),
+                                                     (.orbitMilestone, 784, 0.12),
+                                                     (.orbitCollision, 92, 0.18)]
                     + (1...5).map { (.perfect($0), 523.25 * pow(2, Double($0 - 1) / 12 * 2), 0.12) }
                 for (cue, frequency, duration) in cues {
                     let player = try AVAudioPlayer(data: Self.tone(frequency: frequency, duration: duration))
-                    player.volume = cue == .placement || cue == .pulseGate ? 0.16 : 0.22
+                    player.volume = cue == .placement || cue == .pulseGate || cue == .orbitReverse ? 0.16 : 0.22
                     players[cue] = player
                 }
             } catch {

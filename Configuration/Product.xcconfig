@@ -1,10 +1,11 @@
-// Development placeholders. Replace before signing for a device or distribution.
-SKY_STACK_BUNDLE_ID = com.example.skystack
+// Registered production identity shared by the full app and its embedded Clip.
+DEVELOPMENT_TEAM = 7HTV4A5W6Y
+SKY_STACK_BUNDLE_ID = com.luminecklace.lumiarcade
 SKY_STACK_DISPLAY_NAME = Lumi Arcade
-MARKETING_VERSION = 0.1.0
-CURRENT_PROJECT_VERSION = 1
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 2
 
-// Public client configuration. Replace these placeholders for device builds.
+// Public client configuration for the existing Lumi Supabase project.
 // $() keeps the // in an HTTPS URL from being parsed as an xcconfig comment.
-LUMI_SUPABASE_URL = https:/$()/YOUR_PROJECT.supabase.co
-LUMI_SUPABASE_PUBLISHABLE_KEY = sb_publishable_REPLACE_ME
+LUMI_SUPABASE_URL = https:/$()/jcykgpwaqtyzkuwyvjsy.supabase.co
+LUMI_SUPABASE_PUBLISHABLE_KEY = sb_publishable_Jf-Ld00liEIhd6_jps3NDw_THYVPJDn

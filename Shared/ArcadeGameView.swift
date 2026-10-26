@@ -19,6 +19,11 @@ struct ArcadeGameView: View {
                 arcadot: invocation.arcadot,
                 switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
             )
+        case .orbit:
+            OrbitView(
+                arcadot: invocation.arcadot,
+                switchConfirmationRequirementChanged: switchConfirmationRequirementChanged
+            )
         }
     }
 }

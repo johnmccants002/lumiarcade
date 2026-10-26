@@ -10,6 +10,61 @@
 	<string>56</string>
 	<key>objects</key>
 	<dict>
+		<key>F997B4164DBCFAEE1EC0847D</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Orbit/OrbitConfig.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>967732276E4A17C879BC1985</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Orbit/OrbitHazard.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>DB7566025CF277F7A07FAB56</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Orbit/OrbitScene.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>A0FC5718BA12A6D6C72A5E8C</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Orbit/OrbitSession.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>6E6ED8C4F6A87CE22B5EE504</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>Orbit/OrbitView.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
 		<key>AEA6849CCFFC42C74A8C6E48</key>
 		<dict>
 			<key>isa</key>
@@ -573,6 +628,41 @@
 			<key>sourceTree</key>
 			<string>BUILT_PRODUCTS_DIR</string>
 		</dict>
+		<key>A2EF0AC5299F3563D01AD619</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>F997B4164DBCFAEE1EC0847D</string>
+		</dict>
+		<key>3645C9DAE8E663F3ADC6B929</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>967732276E4A17C879BC1985</string>
+		</dict>
+		<key>E11F6103E746099E99D0024C</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>DB7566025CF277F7A07FAB56</string>
+		</dict>
+		<key>AF1501E952A3C756DC43CD85</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>A0FC5718BA12A6D6C72A5E8C</string>
+		</dict>
+		<key>9FAD88831D579C22CB6745CD</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>6E6ED8C4F6A87CE22B5EE504</string>
+		</dict>
 		<key>9027F41706DC3AE86AF598AE</key>
 		<dict>
 			<key>isa</key>
@@ -819,6 +909,11 @@
 			<integer>2147483647</integer>
 			<key>files</key>
 			<array>
+				<string>A2EF0AC5299F3563D01AD619</string>
+				<string>3645C9DAE8E663F3ADC6B929</string>
+				<string>E11F6103E746099E99D0024C</string>
+				<string>AF1501E952A3C756DC43CD85</string>
+				<string>9FAD88831D579C22CB6745CD</string>
 				<string>9027F41706DC3AE86AF598AE</string>
 				<string>9BB1731BF728B08A30841364</string>
 				<string>F2CE9E7436AB0EF32329412D</string>
@@ -1054,6 +1149,41 @@
 			<string>SkyStack.app</string>
 			<key>sourceTree</key>
 			<string>BUILT_PRODUCTS_DIR</string>
+		</dict>
+		<key>8469A1CC63C9F410A29BB233</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>F997B4164DBCFAEE1EC0847D</string>
+		</dict>
+		<key>2569D679530EB7459FBF53CB</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>967732276E4A17C879BC1985</string>
+		</dict>
+		<key>A0F6E02EFC33850E508BB774</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>DB7566025CF277F7A07FAB56</string>
+		</dict>
+		<key>A615B190E49108DC98A917BB</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>A0FC5718BA12A6D6C72A5E8C</string>
+		</dict>
+		<key>EC157BB4CCC7996CE7BC8A32</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>6E6ED8C4F6A87CE22B5EE504</string>
 		</dict>
 		<key>B00594FEADFBC52A009CE302</key>
 		<dict>
@@ -1329,6 +1459,11 @@
 			<integer>2147483647</integer>
 			<key>files</key>
 			<array>
+				<string>8469A1CC63C9F410A29BB233</string>
+				<string>2569D679530EB7459FBF53CB</string>
+				<string>A0F6E02EFC33850E508BB774</string>
+				<string>A615B190E49108DC98A917BB</string>
+				<string>EC157BB4CCC7996CE7BC8A32</string>
 				<string>B00594FEADFBC52A009CE302</string>
 				<string>7AAE926D7502AEAC83B5BABF</string>
 				<string>B9B428DEBFA5942A7EBCC3E1</string>
@@ -1828,6 +1963,11 @@
 			<string>PBXGroup</string>
 			<key>children</key>
 			<array>
+				<string>F997B4164DBCFAEE1EC0847D</string>
+				<string>967732276E4A17C879BC1985</string>
+				<string>DB7566025CF277F7A07FAB56</string>
+				<string>A0FC5718BA12A6D6C72A5E8C</string>
+				<string>6E6ED8C4F6A87CE22B5EE504</string>
 				<string>AEA6849CCFFC42C74A8C6E48</string>
 				<string>3D6548C7B066F697E4D0213E</string>
 				<string>8C8D7B0A492EB4261A279AD0</string>

@@ -16,4 +16,4 @@ alter table public.arcadots enable row level security;
 revoke all on table public.arcadots from anon, authenticated;
 
 comment on table public.arcadots is
-    'Manually provisioned NFC Arcadots and the game each necklace currently launches.';
+    'Provisioned NFC Arcadots and the game each necklace currently launches.';

@@ -15,7 +15,7 @@ def add(object_name, isa, **props):
 def ref(path, kind):
     return add('file:'+path, 'PBXFileReference', lastKnownFileType=kind, path=path, sourceTree='<group>')
 
-shared = sorted(str(p.relative_to(ROOT)) for folder in ['Shared', 'SkyStack', 'Pulse'] for p in (ROOT/folder).glob('*.swift'))
+shared = sorted(str(p.relative_to(ROOT)) for folder in ['Shared', 'SkyStack', 'Pulse', 'Orbit'] for p in (ROOT/folder).glob('*.swift'))
 app_sources = sorted(str(p.relative_to(ROOT)) for p in (ROOT/'App').glob('*.swift'))
 clip_sources = ['AppClip/AppClipRootView.swift', 'AppClip/LumiArcadeClipApp.swift']
 files = shared + app_sources + clip_sources + ['Tests/SkyStackTests.swift', 'UITests/SkyStackUITests.swift']
@@ -78,7 +78,7 @@ def buildref(name):
     return f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{uid("target:"+name)}" BuildableName="{name}.app" BlueprintName="{name}" ReferencedContainer="container:SkyStack.xcodeproj"/>'
 scheme_specs = [
     ('SkyStack', 'SkyStack', None),
-    ('SkyStackClip', 'SkyStackClip', 'https://play.lumiarcade.com/a/00025'),
+    ('SkyStackClip', 'SkyStackClip', 'https://play.luminecklace.com/a/00025'),
 ]
 for name, target_name, invocation_url in scheme_specs:
     testables=''

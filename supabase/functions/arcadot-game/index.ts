@@ -10,6 +10,7 @@ const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? 
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
 const publishableKey = publishableKeys.default ?? "";
 const secretKey = secretKeys.default ?? "";
+const provisioningToken = Deno.env.get("LUMI_PROVISIONING_TOKEN") ?? "";
 const admin = createClient(projectURL, secretKey);
 
 const repository: ArcadotRepository = {
@@ -19,6 +20,16 @@ const repository: ArcadotRepository = {
       .select("id, active_game, updated_at")
       .eq("id", id)
       .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async create(id, game: GameSlug) {
+    const { data, error } = await admin
+      .from("arcadots")
+      .insert({ id, active_game: game })
+      .select("id, active_game, updated_at")
+      .maybeSingle();
+    if (error?.code === "23505") return null;
     if (error) throw error;
     return data;
   },
@@ -39,7 +50,7 @@ Deno.serve(async (request) => {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   try {
-    return await handleArcadotGameRequest(request, repository);
+    return await handleArcadotGameRequest(request, repository, { provisioningToken });
   } catch (error) {
     console.error("arcadot-game", error);
     return Response.json({ error: "internal_error" }, { status: 500 });

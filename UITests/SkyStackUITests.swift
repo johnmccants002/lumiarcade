@@ -12,7 +12,7 @@ final class SkyStackUITests: XCTestCase {
     func testArcadotInitialsSaveReloadIsolationAndRestart() {
         let app = XCUIApplication()
         let id = "TEST" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let url = "https://play.lumiarcade.com/g/sky-stack/" + id
+        let url = "https://play.luminecklace.com/g/sky-stack/" + id
         app.launchArguments = ["-LumiArcadeInvocationURL", url, "-SkyStackGameOverPreview"]
         app.launch()
         XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
@@ -64,7 +64,7 @@ final class SkyStackUITests: XCTestCase {
     func testFiveRowsFitCompactResults() {
         let app = XCUIApplication()
         let id = "TABLE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let url = "https://play.lumiarcade.com/g/sky-stack/" + id
+        let url = "https://play.luminecklace.com/g/sky-stack/" + id
         for score in [10, 20, 30, 40, 50] {
             app.launchArguments = ["-LumiArcadeInvocationURL", url, "-SkyStackPreviewScore", "\(score)"]
             app.launch()
@@ -110,7 +110,7 @@ final class SkyStackUITests: XCTestCase {
     func testPulseArcadotRoutesToPulseResults() {
         let app = XCUIApplication()
         let id = "PULSE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/g/pulse/" + id,
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.luminecklace.com/g/pulse/" + id,
                                "-PulsePreviewScore", "4"]
         app.launch()
         XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
@@ -123,7 +123,7 @@ final class SkyStackUITests: XCTestCase {
     @MainActor
     func testPulseGameplayTapStartsAndAcceptsRepeatedPulses() {
         let app = XCUIApplication()
-        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/play?game=pulse"]
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.luminecklace.com/play?game=pulse"]
         app.launch()
         XCTAssertTrue(app.staticTexts["pulseInstruction"].waitForExistence(timeout: 5))
         let gameplay = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
@@ -138,10 +138,41 @@ final class SkyStackUITests: XCTestCase {
     }
 
     @MainActor
+    func testOrbitArcadotRoutesToOrbitResults() {
+        let app = XCUIApplication()
+        let id = "ORBIT" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.luminecklace.com/g/orbit/" + id,
+                               "-OrbitPreviewScore", "6"]
+        app.launch()
+        XCTAssertTrue(app.buttons["saveScore"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["finalScore"].label, "6")
+        XCTAssertEqual(app.staticTexts["arcadotIdentity"].label, "ARCADOT #" + id)
+        XCTAssertTrue(app.staticTexts["ORBIT"].exists)
+        XCTAssertEqual(app.keyboards.count, 0)
+    }
+
+    @MainActor
+    func testOrbitTapStartsThenReverses() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.luminecklace.com/play?game=orbit"]
+        app.launch()
+        let instruction = app.staticTexts["orbitInstruction"]
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        XCTAssertEqual(instruction.label, "TAP TO START")
+        let gameplay = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        gameplay.tap()
+        XCTAssertTrue(instruction.waitForExistence(timeout: 1))
+        XCTAssertEqual(instruction.label, "TAP TO REVERSE")
+        gameplay.tap()
+        XCTAssertFalse(instruction.exists)
+        XCTAssertTrue(app.staticTexts["liveScore"].exists)
+    }
+
+    @MainActor
     func testNecklaceSwitchPersistsThroughAssignmentCacheFallback() {
         let app = XCUIApplication()
         let id = "SWITCH" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let url = "https://play.lumiarcade.com/a/" + id
+        let url = "https://play.luminecklace.com/a/" + id
         app.launchArguments = ["-LumiArcadeInvocationURL", url,
                                "-LumiArcadeAssignmentGame", "pulse"]
         app.launch()
@@ -176,7 +207,7 @@ final class SkyStackUITests: XCTestCase {
         let app = XCUIApplication()
         let id = "SAVED" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         app.launchArguments = [
-            "-LumiArcadeInvocationURL", "https://play.lumiarcade.com/g/sky-stack/" + id,
+            "-LumiArcadeInvocationURL", "https://play.luminecklace.com/g/sky-stack/" + id,
             "-SkyStackPreviewScore", "7"
         ]
         app.launch()
@@ -193,7 +224,7 @@ final class SkyStackUITests: XCTestCase {
     func testOfflineNecklaceWithoutCacheAllowsSessionOnlyPlay() {
         let app = XCUIApplication()
         let id = "OFFLINE" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.lumiarcade.com/a/" + id,
+        app.launchArguments = ["-LumiArcadeInvocationURL", "https://play.luminecklace.com/a/" + id,
                                "-LumiArcadeAssignmentUnavailable"]
         app.launch()
         XCTAssertTrue(app.buttons["select-pulse"].waitForExistence(timeout: 5))
@@ -206,8 +237,8 @@ final class SkyStackUITests: XCTestCase {
     func testDifferentNecklacesKeepIndependentCachedAssignments() {
         let app = XCUIApplication()
         let suffix = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let pulseURL = "https://play.lumiarcade.com/a/P" + suffix
-        let stackURL = "https://play.lumiarcade.com/a/S" + suffix
+        let pulseURL = "https://play.luminecklace.com/a/P" + suffix
+        let stackURL = "https://play.luminecklace.com/a/S" + suffix
 
         app.launchArguments = ["-LumiArcadeInvocationURL", pulseURL,
                                "-LumiArcadeAssignmentGame", "pulse"]

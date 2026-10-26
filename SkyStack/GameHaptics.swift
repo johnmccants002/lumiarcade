@@ -8,6 +8,7 @@ final class GameHaptics {
 
     func prepare() { light.prepare(); perfect.prepare(); success.prepare(); failure.prepare() }
     func placement() { light.impactOccurred(intensity: 0.6); light.prepare() }
+    func reverse() { light.impactOccurred(intensity: 0.45); light.prepare() }
     func perfectPlacement() { perfect.impactOccurred(intensity: 0.9); perfect.prepare() }
     func gatePassed() { light.impactOccurred(intensity: 0.32); light.prepare() }
     func milestone() { perfect.impactOccurred(intensity: 0.7); perfect.prepare() }
